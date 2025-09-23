@@ -1,0 +1,10 @@
+streamlit
+pandas
+PyMuPDF
+python-docx
+openpyxl
+reportlab
+matplotlib
+seaborn
+numpy
+
