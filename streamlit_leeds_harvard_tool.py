@@ -279,23 +279,28 @@ def find_reference_section(text):
             break
         ref_lines.append(ln)
     return ref_lines
+
+# docx hyperlink helper (creates a clickable hyperlink in python-docx)
 # docx hyperlink helper (creates a clickable hyperlink in python-docx)
 def add_hyperlink(paragraph, url, text, color="0000FF", underline=True):
     """
     Add a hyperlink to a python-docx paragraph.
     Returns the rId (relationship id) for testing if needed.
     """
-    # Reference: accepted pattern for adding hyperlink via XML (python-docx doesn't have direct API)
     from docx.oxml import OxmlElement
     from docx.oxml.ns import qn
     from docx.opc.constants import RELATIONSHIP_TYPE as RT
-part = paragraph.part
+
+    part = paragraph.part
     r_id = part.relate_to(url, RT.HYPERLINK, is_external=True)
-hyperlink = OxmlElement('w:hyperlink')
+
+    hyperlink = OxmlElement('w:hyperlink')
     hyperlink.set(qn('r:id'), r_id)
-new_run = OxmlElement('w:r')
+
+    new_run = OxmlElement('w:r')
     rPr = OxmlElement('w:rPr')
-# Styling
+
+    # Styling
     if color:
         c = OxmlElement('w:color')
         c.set(qn('w:val'), color)
@@ -304,23 +309,29 @@ new_run = OxmlElement('w:r')
         u = OxmlElement('w:u')
         u.set(qn('w:val'), 'single')
         rPr.append(u)
-new_run.append(rPr)
+
+    new_run.append(rPr)
+
     text_elem = OxmlElement('w:t')
     text_elem.text = text
     new_run.append(text_elem)
+
     hyperlink.append(new_run)
     paragraph._p.append(hyperlink)
+
     return r_id
-def generate_docx_reference_list(refs):
+from datetime import datetime
+
+def generate_docx_reference_list(refs, accessed_date):
     """
-    Build a .docx bytes buffer containing an alphabetised reference list with titles italicised
-    and URLs as active links where present.
+    Build a .docx bytes buffer containing an alphabetised reference list with titles italicised,
+    URLs as active links, and learner-supplied access date.
     Returns bytes buffer.
     """
     doc = DocxDocument()
-    # Title
     doc.add_heading("Reference List", level=1)
-    # Sort by surname
+
+    # Sort alphabetically by surname
     sorted_refs = sorted(refs, key=surname_key)
     for r in sorted_refs:
         p = doc.add_paragraph()
@@ -329,21 +340,33 @@ def generate_docx_reference_list(refs):
         title = r.get("title", "")
         source = r.get("source", "")
         url = r.get("url", "")
-# Build runs: authors + year + title (italic) + source + url (hyperlink)
-        run = p.add_run(f"{authors} {year}. ")
+
+        # Authors + Year
+        if authors or year:
+            p.add_run(f"{authors} ({year}). ")
+
+        # Italicise title
         if title:
             run = p.add_run(title + ". ")
             run.italic = True
+
+        # Source
         if source:
             p.add_run(source + ". ")
+
+        # URL + accessed date (as per Leeds Harvard)
         if url:
-            # add hyperlink
-            add_hyperlink(p, url, url)
-    # Save to bytes
+            p.add_run("Available at: ")
+            add_hyperlink(p, url, url)   # live hyperlink
+            if accessed_date:
+                p.add_run(f" (Accessed: {accessed_date}).")
+
+    # Save to buffer
     bio = BytesIO()
     doc.save(bio)
     bio.seek(0)
     return bio
+
 def scan_document_for_citations_and_mismatch(text, references):
     """
     Basic check: find in-text citation patterns in the text, then compare to reference surnames.
