@@ -1,598 +1,588 @@
-
-"""
-Leeds Harvard Referencing Tool - full integrated Streamlit app.
-
-Requirements (example requirements.txt entries):
-streamlit
-python-docx
-requests
-beautifulsoup4
-docx2txt
-pymupdf
-"""
-
+# streamlit_leeds_harvard_tool.py
 import streamlit as st
 import re
 import requests
 from bs4 import BeautifulSoup
-from docx import Document
-from docx.shared import Inches
+from docx import Document as DocxDocument
+from docx.shared import Pt
 from io import BytesIO
-import docx2txt
 import fitz  # PyMuPDF
 import textwrap
 from urllib.parse import urlparse
-
-# ---------------------------------------------------------
-# Helper: Add hyperlink to python-docx paragraph
-# (Recipe adapted to create a clickable hyperlink in .docx)
-# ---------------------------------------------------------
-from docx.oxml import OxmlElement
-from docx.oxml.ns import qn
-
-
-def add_hyperlink(paragraph, url, text, color="0000FF", underline=True):
-    """
-    Add a hyperlink to a paragraph (python-docx).
-    Returns the <w:r> run element for additional styling if needed.
-    """
-    # Create the w:hyperlink tag and set required attributes
-    part = paragraph.part
-    r_id = part.relate_to(url, "http://schemas.openxmlformats.org/officeDocument/2006/relationships/hyperlink", is_external=True)
-
-    hyperlink = OxmlElement("w:hyperlink")
-    hyperlink.set(qn("r:id"), r_id)
-
-    # Create a run
-    new_run = OxmlElement("w:r")
-    rPr = OxmlElement("w:rPr")
-
-    # style: color
-    if color:
-        color_elem = OxmlElement("w:color")
-        color_elem.set(qn("w:val"), color)
-        rPr.append(color_elem)
-
-    # style: underline
-    if underline:
-        u = OxmlElement("w:u")
-        u.set(qn("w:val"), "single")
-        rPr.append(u)
-
-    new_run.append(rPr)
-
-    # create w:t and set the text
-    text_elem = OxmlElement("w:t")
-    text_elem.text = text
-    new_run.append(text_elem)
-
-    hyperlink.append(new_run)
-    paragraph._p.append(hyperlink)
-    return new_run
-
-
-# ---------------------------------------------------------
-# CrossRef & URL scraping helpers (autofill)
-# ---------------------------------------------------------
-CROSSREF_API = "https://api.crossref.org/works/"
-
-def lookup_doi(doi):
-    """
-    Query CrossRef for metadata given a DOI.
-    Returns a dict with keys: author, year, title, journal/publisher, volume, issue, pages, url
-    """
-    try:
-        doi = doi.strip()
-        if doi.lower().startswith("http"):
-            # user pasted a DOI link; extract part after '/'
-            doi = doi.split("doi.org/")[-1]
-        url = CROSSREF_API + doi
-        resp = requests.get(url, timeout=10, headers={"User-Agent": "LeedsHarvardTool/1.0 (mailto:youremail@example.org)"})
-        if resp.status_code != 200:
-            return None
-        data = resp.json()["message"]
-        # extract
-        authors = []
-        for a in data.get("author", []):
-            given = a.get("given", "")
-            family = a.get("family", "")
-            if family and given:
-                authors.append(f"{family}, {given[0]}.")
-            elif family:
-                authors.append(family)
-        author_str = "; ".join(authors) if authors else data.get("publisher", "")
-        year = ""
-        if "issued" in data and "date-parts" in data["issued"] and data["issued"]["date-parts"]:
-            year = str(data["issued"]["date-parts"][0][0])
-        title = data.get("title", [""])[0]
-        container = data.get("container-title", [""])[0]  # journal
-        volume = data.get("volume", "")
-        issue = data.get("issue", "")
-        pages = data.get("page", "")
-        link = data.get("URL", "")
-        return {
-            "author": author_str,
-            "year": year,
-            "title": title,
-            "container": container,
-            "volume": volume,
-            "issue": issue,
-            "pages": pages,
-            "url": link
-        }
-    except Exception as e:
-        return None
-
-
-def scrape_url_for_metadata(url):
-    """
-    Simple metadata scraping for a given URL.
-    Extracts page title, possible authors (from meta), and publish date (from meta).
-    This is best-effort only.
-    """
-    try:
-        headers = {"User-Agent": "Mozilla/5.0 (compatible; LeedsHarvardTool/1.0)"}
-        resp = requests.get(url, timeout=8, headers=headers)
-        if resp.status_code != 200:
-            return None
-        soup = BeautifulSoup(resp.text, "html.parser")
-        title = soup.title.string.strip() if soup.title else ""
-        # meta author
-        author = ""
-        author_meta = soup.find("meta", {"name": "author"}) or soup.find("meta", {"property": "author"})
-        if author_meta and author_meta.get("content"):
-            author = author_meta["content"]
-        # publish date common meta tags
-        date = ""
-        for attr in ["article:published_time", "og:updated_time", "published", "dc.date", "date"]:
-            tag = soup.find("meta", {"property": attr}) or soup.find("meta", {"name": attr})
-            if tag and tag.get("content"):
-                date = tag["content"]
-                break
-        # Simplify year from date if possible
-        year = ""
-        if date:
-            m = re.search(r"(19|20)\d{2}", date)
-            if m:
-                year = m.group(0)
-        return {
-            "author": author or urlparse(url).netloc,
-            "year": year,
-            "title": title,
-            "url": url
-        }
-    except Exception:
-        return None
-
-
-# ---------------------------------------------------------
-# Formatting helpers (Leeds Harvard style)
-# Store references as structured dicts in session state
-# ---------------------------------------------------------
-def format_reference_str(ref):
-    """
-    Produce a display string with markdown-ish italics for the Streamlit UI.
-    ref is a dict containing keys depending on type.
-    """
-    typ = ref.get("type", "book")
-    author = ref.get("author", "").strip()
-    year = ref.get("year", "").strip()
-    title = ref.get("title", "").strip()
-    if typ == "book":
-        place = ref.get("place", "")
-        publisher = ref.get("publisher", "")
-        return f"{author} {year}. *{title}*. {place}: {publisher}."
-    if typ == "chapter":
-        editors = ref.get("editors", "")
-        book_title = ref.get("book_title", "")
-        place = ref.get("place", "")
-        publisher = ref.get("publisher", "")
-        pages = ref.get("pages", "")
-        return f"{author} {year}. '{title}', in {editors} (ed.) *{book_title}*. {place}: {publisher}, {pages}."
-    if typ == "journal":
-        journal = ref.get("journal", "")
-        volume = ref.get("volume", "")
-        issue = ref.get("issue", "")
-        pages = ref.get("pages", "")
-        return f"{author} {year}. '{title}', *{journal}*, {volume}({issue}), pp. {pages}."
-    if typ == "website":
-        site = ref.get("site_name", "")
-        url = ref.get("url", "")
-        access = ref.get("access_date", "")
-        # clickable link in UI will be added separately
-        return f"{author} {year}. *{title}*. {site}. Available at: {url} (Accessed: {access})."
-    if typ == "report":
-        org = ref.get("org", "")
-        place = ref.get("place", "")
-        publisher = ref.get("publisher", "")
-        return f"{org} {year}. *{title}*. {place}: {publisher}."
-    if typ == "thesis":
-        degree = ref.get("degree", "")
-        uni = ref.get("university", "")
-        return f"{author} {year}. *{title}*. {degree}. {uni}."
-    return ""
-
-
-def docx_add_reference(doc, ref, logo_path=None):
-    """
-    Add a single reference to a python-docx Document with proper formatting.
-    Only the title is italicised using add_run().italic = True
-    """
-    p = doc.add_paragraph()
-    typ = ref.get("type", "book")
-    author = ref.get("author", "")
-    year = ref.get("year", "")
-    title = ref.get("title", "")
-    # Build pieces so we can add runs with correct italics
-    if typ == "book":
-        place = ref.get("place", "")
-        publisher = ref.get("publisher", "")
-        p.add_run(f"{author} {year}. ")
-        r = p.add_run(title)
-        r.italic = True
-        p.add_run(f". {place}: {publisher}.")
-    elif typ == "journal":
-        journal = ref.get("journal", "")
-        volume = ref.get("volume", "")
-        issue = ref.get("issue", "")
-        pages = ref.get("pages", "")
-        p.add_run(f"{author} {year}. '")
-        p.add_run(title).italic = True
-        p.add_run(f"', {journal}, {volume}({issue}), pp. {pages}.")
-    elif typ == "website":
-        site = ref.get("site_name", "")
-        url = ref.get("url", "")
-        access = ref.get("access_date", "")
-        p.add_run(f"{author} {year}. ")
-        p.add_run(title).italic = True
-        p.add_run(f". {site}. Available at: ")
-        # add hyperlink
-        add_hyperlink(p, url, url)
-        p.add_run(f" (Accessed: {access}).")
-    elif typ == "chapter":
-        editors = ref.get("editors", "")
-        book_title = ref.get("book_title", "")
-        place = ref.get("place", "")
-        publisher = ref.get("publisher", "")
-        pages = ref.get("pages", "")
-        p.add_run(f"{author} {year}. '")
-        p.add_run(title).italic = True
-        p.add_run(f"', in {editors} (ed.) ")
-        p.add_run(book_title).italic = True
-        p.add_run(f". {place}: {publisher}, {pages}.")
-    elif typ == "report":
-        org = ref.get("org", "")
-        place = ref.get("place", "")
-        publisher = ref.get("publisher", "")
-        p.add_run(f"{org} {year}. ")
-        p.add_run(title).italic = True
-        p.add_run(f". {place}: {publisher}.")
-    elif typ == "thesis":
-        degree = ref.get("degree", "")
-        uni = ref.get("university", "")
-        p.add_run(f"{author} {year}. ")
-        p.add_run(title).italic = True
-        p.add_run(f". {degree}. {uni}.")
-    else:
-        p.add_run(format_reference_str(ref))
-
-
-# ---------------------------------------------------------
-# Text extraction, citation detection and reporting
-# ---------------------------------------------------------
-def extract_text_from_file(uploaded):
-    """Given an uploaded file (docx or pdf), return its plain text."""
-    if uploaded.name.lower().endswith(".docx"):
-        return docx2txt.process(uploaded)
-    elif uploaded.name.lower().endswith(".pdf"):
-        text = ""
-        with fitz.open(stream=uploaded.read(), filetype="pdf") as pdf:
-            for p in pdf:
-                text += p.get_text()
-        return text
-    return ""
-
-
-CITATION_PATTERN = r"\(([A-Z][A-Za-z\-\']+)(?: et al\.)?,\s*(\d{4})\)"  # e.g. (Smith, 2023) or (O'Neil, 2021)
-
-
-def find_intext_citations(text):
-    """Return list of tuples (AuthorSurname, Year) found in the text."""
-    return re.findall(CITATION_PATTERN, text)
-
-
-def sentence_highlights(text, references):
-    """
-    For each sentence, find citations and mark green/orange depending on match.
-    Returns list of tuples (sentence, status_text, color).
-    """
-    sentences = re.split(r'(?<=[.!?])\s+', text)
-    ref_authors = [r.get("author", "").split(",")[0] for r in references]  # first surname token
-    ref_years = [r.get("year", "") for r in references]
-
-    highlights = []
-    for s in sentences:
-        matches = re.findall(CITATION_PATTERN, s)
-        for author, year in matches:
-            # try to match author surname ignoring case and punctuation
-            matched = False
-            for ra, ry in zip(ref_authors, ref_years):
-                if ra and author.lower() in ra.lower() and ry == year:
-                    matched = True
-                    break
-            if matched:
-                highlights.append((s.strip(), f"✅ ({author}, {year}) correctly cited", "green"))
-            else:
-                highlights.append((s.strip(), f"⚠ ({author}, {year}) missing from reference list", "orange"))
-    return highlights
-
-
-def find_unused_references(citations, references):
-    """Find references that don't appear in the citations list."""
-    results = []
-    for r in references:
-        author = r.get("author", "")
-        year = r.get("year", "")
-        # compare using surname token
-        surname = author.split(",")[0] if "," in author else author.split()[0]
-        used = any(surname.lower() in a.lower() and year == y for a, y in citations)
-        if not used:
-            results.append((r, "❌ Not cited in text", "red"))
-    return results
-
-
-# ---------------------------------------------------------
-# Streamlit UI
-# ---------------------------------------------------------
-st.set_page_config(page_title="Leeds Harvard Referencing Tool", layout="wide")
-st.markdown("---")
-
-# Header banner (full width)
-try:
-    st.image("Header.png", use_column_width=True)
-except Exception:
-    st.warning("Header.png not found in the working folder — place your banner image file in the same folder as this script and name it 'Header.png'.")
-
-st.title("📚 Leeds Harvard Referencing Checker & Guide")
-st.write("""Developed by Macmillan Centre for Learning — helpful guidance for students learning Leeds Harvard referencing.""")
+import json
+from datetime import datetime
+from pathlib import Path
+# ==========================
+# Page config + CSS (colour scheme from your brief)
+# ==========================
+st.set_page_config(page_title="Leeds Harvard Referencing Tool",
+                   page_icon="📚",
+                   layout="wide")
+# Global CSS for consistent colours and font sizing
+st.markdown(
+    f"""
+    <style>
+        :root {{
+            --bg: #e6f7f8;             /* Background */
+            --header-bg: #00a2b3;      /* Header Background */
+            --header-text: #ffffff;    /* Header Text */
+            --quiz-title: #008080;
+            --question-box: #dff7f9;
+            --button-bg: #009688;
+            --accent-warm: #f9a825;
+            --accent-cool: #5c6bc0;
+            --muted-text: #37474f;
+            --border: #80cbc4;
+            --hover: #00796b;
+            --secondary-bg: #f1f8e9;
+            --highlight: #ffccbc;
+            --link: #0288d1;
+        }}
+body {{
+            background-color: var(--bg);
+            color: var(--muted-text);
+        }}
+.header-container {{
+            background-color: var(--header-bg);
+            padding: 8px 14px;
+            border-radius: 10px;
+            text-align: center;
+            margin-bottom: 18px;
+        }}
+        .header-container img {{
+            max-width: 100%;
+            height: auto;
+            border-radius: 6px;
+        }}
+.ref-box {{
+            background: white;
+            border: 1px solid var(--border);
+            padding: 12px;
+            border-radius: 8px;
+        }}
+.small-muted {{
+            font-size:12px;
+            color: #5f6b6b;
+        }}
+    </style>
+    """,
+    unsafe_allow_html=True
+)
+# ==========================
+# Header (image stored at assets/Header.png)
+# ==========================
 st.markdown(
     """
-    <div>
-      <a href="https://www.macmillancentre.org" target="_blank">Macmillan Centre for Learning</a> ·
-      <a href="https://www.sssc.uk.com/registration/codes-of-practice" target="_blank">SSSC Codes of Practice (2024)</a> ·
-      <a href="https://library.leeds.ac.uk/skills/referencing" target="_blank">Leeds University Library — Harvard guidance</a>
+    <div class="header-container">
+        <img src="assets/Header.png" alt="Macmillan Centre for Learning Header">
+    </div>
+    """,
+    unsafe_allow_html=True,
+)
+# Short intro and helpful links (open in new tab)
+st.markdown(
+    """
+    <div style="margin-bottom:12px;">
+    <strong>Leeds Harvard Referencing Checker & Guide</strong> — guidance and checks to help students learn Leeds Harvard referencing (not an automatic fixer; will explain required amendments).
+    </div>
+    <div class="small-muted">
+    Example Leeds Harvard book entry: <em>Smith, J. 2023. Education in Practice. London: Routledge.</em>
+    &nbsp;|&nbsp;
+    <a href="https://library.leeds.ac.uk/info/1404/referencing/46/harvard_style" target="_blank" rel="noopener">Leeds University Library guidance</a>
+    &nbsp;|&nbsp;
+    <a href="https://www.maclearning.org" target="_blank" rel="noopener">Macmillan Centre for Learning</a>
+    </div>
+    """,
+    unsafe_allow_html=True,
+)
+# ==========================
+# Session state: references list
+# ==========================
+if "references" not in st.session_state:
+    st.session_state.references = []  # list of dicts: {authors, year, title, source, url, notes}
+# ==========================
+# Helper functions
+# ==========================
+def surname_key(ref):
+    """Return primary sorting key (surname of first author) for alphabetical ordering."""
+    authors = ref.get("authors", "") or ""
+    # If authors like "Smith, J." or "Smith J", pick first token before comma or space
+    if "," in authors:
+        surname = authors.split(",")[0].strip().lower()
+    else:
+        surname = authors.split()[0].strip().lower() if authors else ""
+    return surname
+def format_display_reference(ref):
+    """
+    Return a display-safe HTML/Markdown string of the Leeds Harvard formatted ref,
+    with title italicised only.
+    """
+    authors = ref.get("authors", "").strip()
+    year = ref.get("year", "").strip()
+    title = ref.get("title", "").strip()
+    source = ref.get("source", "").strip()
+    url = ref.get("url", "").strip()
+# Build base: Authors Year. Title. Source.
+    parts = []
+    if authors:
+        parts.append(f"{authors}")
+    if year:
+        parts.append(f"{year}")
+    header = ". ".join(parts).strip()
+    if header:
+        header = header + ". "
+# Italicise title in Markdown: *title*
+    title_md = f"*{title}*" if title else ""
+    # Compose remainder
+    remainder = ""
+    if source:
+        remainder = f" {source}."
+    if url:
+        remainder += f' <a href="{url}" target="_blank" rel="noopener">{url}</a>'
+return f"{header}{title_md}{remainder}"
+def parse_reference_string(s):
+    """
+    Heuristic parser. Input: single reference string (free text).
+    Returns dict with keys: authors, year, title, source, url.
+    Not perfect — uses simple heuristics but good enough to teach students.
+    """
+    s = s.strip()
+    parsed = {"raw": s, "authors": "", "year": "", "title": "", "source": "", "url": ""}
+    # Extract URL if any
+    url_match = re.search(r"(https?://\S+)", s)
+    if url_match:
+        parsed["url"] = url_match.group(1).rstrip(".,)")
+        s = s.replace(url_match.group(1), "").strip()
+# Find year (4-digit)
+    year_match = re.search(r"\b(19|20)\d{2}\b", s)
+    if year_match:
+        parsed["year"] = year_match.group(0)
+        # remove year placeholder from string for simpler parsing
+        s = s.replace(year_match.group(0), "").strip(". ,")
+# Split on full stops to guess author/title/source
+    parts = [p.strip() for p in re.split(r"\.\s+", s) if p.strip()]
+    # Common Leeds Harvard pattern: Author. Year. Title. Place: Publisher.
+    if len(parts) >= 1:
+        # First part often contains author(s)
+        if re.search(r"[A-Za-z]+,\s*[A-Z]", parts[0]) or re.search(r"\band\b", parts[0], re.I):
+            parsed["authors"] = parts[0]
+            if len(parts) >= 2:
+                # Next part often title or year — but year possibly removed already
+                # If remaining parts >=2, choose next as title
+                parsed["title"] = parts[1] if len(parts) >= 2 else ""
+                # source is remainder
+                parsed["source"] = " ".join(parts[2:]) if len(parts) >= 3 else ""
+        else:
+            # If first part doesn't look like author, maybe it's title-first source (webpages)
+            parsed["title"] = parts[0]
+            parsed["source"] = " ".join(parts[1:]) if len(parts) >= 2 else ""
+    # Final cleanup
+    parsed = {k: v.strip() for k, v in parsed.items()}
+    return parsed
+def check_reference_for_leeds_harvard(parsed):
+    """
+    Check the parsed fields and return a list of suggested amendments.
+    The function purposefully does NOT modify the reference—only suggests.
+    """
+    suggestions = []
+    # Authors check
+    if not parsed.get("authors"):
+        suggestions.append("Add author(s): Leeds Harvard begins with surname then initials (e.g. Smith, J.).")
+    # Year
+    year = parsed.get("year", "")
+    if not year:
+        suggestions.append("Add year of publication (4-digit). Use 'n.d.' if no date is available.")
+    else:
+        if not re.match(r"^(19|20)\d{2}$", year):
+            suggestions.append("Year looks unusual; ensure it is a 4-digit year (e.g. 2023).")
+    # Title
+    title = parsed.get("title", "")
+    if not title:
+        suggestions.append("Add the title of the work. In Leeds Harvard the title is italicised in the reference list.")
+    # Source / Publisher
+    source = parsed.get("source", "")
+    url = parsed.get("url","")
+    if url:
+        # For web resources, source may be website name; include Accessed date
+        suggestions.append("For websites include the main site or organisation and an accessed date (e.g. Accessed: 01 January 2025).")
+    else:
+        if not source:
+            suggestions.append("Add place and publisher for books (e.g. London: Routledge) or the journal title/volume for articles.")
+    return suggestions
+def add_reference_to_session(parsed):
+    """Add parsed reference dict to session_state.references, avoid duplicates by raw string."""
+    raw = parsed.get("raw", "")
+    # Avoid duplicates
+    for r in st.session_state.references:
+        if r.get("raw","").strip().lower() == raw.strip().lower():
+            st.warning("This reference appears to already be in the list.")
+            return False
+    st.session_state.references.append(parsed)
+    # Keep references alphabetically sorted for display (by surname)
+    st.session_state.references.sort(key=surname_key)
+    return True
+def extract_text_from_docx_file(uploaded_file):
+    """Extract text from uploaded .docx file object (uploaded_file is a file-like object)."""
+    try:
+        uploaded_file.seek(0)
+        doc = DocxDocument(uploaded_file)
+        paragraphs = [p.text for p in doc.paragraphs if p.text and p.text.strip()]
+        return "\n".join(paragraphs)
+    except Exception:
+        # Fallback: try reading bytes and use docx2txt (if available)
+        try:
+            uploaded_file.seek(0)
+            import docx2txt
+            tmp = BytesIO(uploaded_file.read())
+            # docx2txt expects filename; write to temp file
+            path = Path("temp_uploaded.docx")
+            path.write_bytes(tmp.getvalue())
+            txt = docx2txt.process(str(path))
+            path.unlink(missing_ok=True)
+            return txt
+        except Exception as e:
+            return f"[Error reading DOCX: {e}]"
+def extract_text_from_pdf_file(uploaded_file):
+    try:
+        uploaded_file.seek(0)
+        pdf_bytes = uploaded_file.read()
+        doc = fitz.open(stream=pdf_bytes, filetype="pdf")
+        text = []
+        for page in doc:
+            text.append(page.get_text())
+        return "\n".join(text)
+    except Exception as e:
+        return f"[Error reading PDF: {e}]"
+def find_reference_section(text):
+    """
+    Try to locate a 'References' or 'Reference list' section and return the lines that follow.
+    """
+    if not text:
+        return []
+    # Normalize and split into lines
+    lines = [ln.strip() for ln in text.splitlines() if ln.strip()]
+    # Find index of a heading likely to be references
+    idx = None
+    for i, ln in enumerate(lines):
+        if re.match(r"^(references|reference list|bibliography)\b", ln, re.I):
+            idx = i + 1
+            break
+    if idx is None:
+        # Could be a list at the end without heading; attempt to heuristically find long list of lines with years or publisher patterns
+        # We return an empty list so UI can ask for manual paste if not found.
+        return []
+    # Collect subsequent lines until a new heading (all caps or short)
+    ref_lines = []
+    for ln in lines[idx:]:
+        # stop if next big heading
+        if len(ln) < 60 and ln.isupper() and not re.search(r"\d", ln):
+            break
+        ref_lines.append(ln)
+    return ref_lines
+# docx hyperlink helper (creates a clickable hyperlink in python-docx)
+def add_hyperlink(paragraph, url, text, color="0000FF", underline=True):
+    """
+    Add a hyperlink to a python-docx paragraph.
+    Returns the rId (relationship id) for testing if needed.
+    """
+    # Reference: accepted pattern for adding hyperlink via XML (python-docx doesn't have direct API)
+    from docx.oxml import OxmlElement
+    from docx.oxml.ns import qn
+    from docx.opc.constants import RELATIONSHIP_TYPE as RT
+part = paragraph.part
+    r_id = part.relate_to(url, RT.HYPERLINK, is_external=True)
+hyperlink = OxmlElement('w:hyperlink')
+    hyperlink.set(qn('r:id'), r_id)
+new_run = OxmlElement('w:r')
+    rPr = OxmlElement('w:rPr')
+# Styling
+    if color:
+        c = OxmlElement('w:color')
+        c.set(qn('w:val'), color)
+        rPr.append(c)
+    if underline:
+        u = OxmlElement('w:u')
+        u.set(qn('w:val'), 'single')
+        rPr.append(u)
+new_run.append(rPr)
+    text_elem = OxmlElement('w:t')
+    text_elem.text = text
+    new_run.append(text_elem)
+    hyperlink.append(new_run)
+    paragraph._p.append(hyperlink)
+    return r_id
+def generate_docx_reference_list(refs):
+    """
+    Build a .docx bytes buffer containing an alphabetised reference list with titles italicised
+    and URLs as active links where present.
+    Returns bytes buffer.
+    """
+    doc = DocxDocument()
+    # Title
+    doc.add_heading("Reference List", level=1)
+    # Sort by surname
+    sorted_refs = sorted(refs, key=surname_key)
+    for r in sorted_refs:
+        p = doc.add_paragraph()
+        authors = r.get("authors", "")
+        year = r.get("year", "")
+        title = r.get("title", "")
+        source = r.get("source", "")
+        url = r.get("url", "")
+# Build runs: authors + year + title (italic) + source + url (hyperlink)
+        run = p.add_run(f"{authors} {year}. ")
+        if title:
+            run = p.add_run(title + ". ")
+            run.italic = True
+        if source:
+            p.add_run(source + ". ")
+        if url:
+            # add hyperlink
+            add_hyperlink(p, url, url)
+    # Save to bytes
+    bio = BytesIO()
+    doc.save(bio)
+    bio.seek(0)
+    return bio
+def scan_document_for_citations_and_mismatch(text, references):
+    """
+    Basic check: find in-text citation patterns in the text, then compare to reference surnames.
+    Returns dict with:
+      - found_citations: set of surnames found in-text (from patterns)
+      - referenced_surnames: set extracted from references
+      - missing_in_refs: citations in text not in reference list
+      - not_cited_in_text: references present but not cited in text
+    """
+    if not text:
+        return {}
+    # find friendlier citation patterns: (Surname, 2020) or Surname (2020)
+    found = set()
+    # pattern for (Author, 2020)
+    for m in re.finditer(r"\(([^(),\d]+?),\s*(19|20)\d{2}\)", text):
+        surname = m.group(1).strip().split()[-1]
+        found.add(surname.lower())
+    # pattern for Surname (2020)
+    for m in re.finditer(r"\b([A-Z][a-zA-Z-]+)\s*\((19|20)\d{2}\)", text):
+        surname = m.group(1).strip()
+        found.add(surname.lower())
+# reference surnames
+    ref_surnames = set()
+    for r in references:
+        auth = r.get("authors", "")
+        if "," in auth:
+            surname = auth.split(",")[0].strip()
+        else:
+            surname = auth.split()[0] if auth else ""
+        if surname:
+            ref_surnames.add(surname.lower())
+missing_in_refs = sorted(list(found - ref_surnames))
+    not_cited = sorted(list(ref_surnames - found))
+    return {
+        "found_citations": sorted(list(found)),
+        "referenced_surnames": sorted(list(ref_surnames)),
+        "missing_in_refs": missing_in_refs,
+        "not_cited_in_text": not_cited
+    }
+# ==========================
+# UI layout: left = inputs, right = reference list
+# ==========================
+left_col, right_col = st.columns([2, 3])
+with left_col:
+    st.subheader("Input & Checks")
+    input_mode = st.selectbox("Input method", ["Manual reference", "URL (webpage)", "Upload document (assessment/check)"])
+if input_mode == "Manual reference":
+        raw_ref = st.text_area("Paste or type the reference (one item). Example: Smith, J. 2023. Education in Practice. London: Routledge.", height=120)
+        if st.button("Analyse reference"):
+            if not raw_ref.strip():
+                st.warning("Please paste or type a reference first.")
+            else:
+                parsed = parse_reference_string(raw_ref)
+                st.session_state.last_parsed = parsed
+                st.markdown("**Parsed fields:**")
+                st.json(parsed)
+                # validation suggestions
+                suggestions = check_reference_for_leeds_harvard(parsed)
+                if suggestions:
+                    st.markdown("**Suggested amendments (student should act on these):**")
+                    for s in suggestions:
+                        st.info(s)
+                else:
+                    st.success("Reference looks well-formed for Leeds Harvard.")
+                if st.button("Add this reference to Reference List"):
+                    added = add_reference_to_session(parsed)
+                    if added:
+                        st.success("Reference added.")
+    elif input_mode == "URL (webpage)":
+        url_input = st.text_input("Enter the full webpage URL (https...)")
+        if st.button("Fetch & suggest reference"):
+            if not url_input.strip():
+                st.warning("Enter a URL.")
+            else:
+                try:
+                    meta = {}
+                    r = requests.get(url_input, timeout=8)
+                    s = BeautifulSoup(r.text, "html.parser")
+                    title = s.title.string.strip() if s.title and s.title.string else ""
+                    site = urlparse(url_input).netloc
+                    parsed = {
+                        "raw": f"{site} (n.d.) {title}. {url_input}",
+                        "authors": site,
+                        "year": "n.d.",
+                        "title": title,
+                        "source": site,
+                        "url": url_input
+                    }
+                    st.json(parsed)
+                    sug = check_reference_for_leeds_harvard(parsed)
+                    if sug:
+                        st.markdown("**Suggested amendments:**")
+                        for s in sug:
+                            st.info(s)
+                    else:
+                        st.success("Looks good.")
+                    if st.button("Add webpage reference"):
+                        add_reference_to_session(parsed)
+                        st.success("Web reference added to Reference List.")
+                except Exception as e:
+                    st.error(f"Error fetching URL: {e}")
+else:  # Upload
+        st.markdown("Upload a student's assessment or a file containing references.")
+        upload_file = st.file_uploader("Upload .docx or .pdf", type=["docx", "pdf"])
+        if upload_file is not None:
+            st.info("File uploaded. Extracting text (may take a few seconds).")
+            if upload_file.type == "application/pdf":
+                txt = extract_text_from_pdf_file(upload_file)
+            else:
+                txt = extract_text_from_docx_file(upload_file)
+            # show small excerpt and allow the user to extract reference lines
+            st.markdown("**Preview (first 800 chars)**")
+            st.text(textwrap.shorten(txt, width=800, placeholder="..."))
+            refs_found = find_reference_section(txt)
+            if refs_found:
+                st.markdown("**References section detected.** Example lines (first 20):")
+                for ln in refs_found[:20]:
+                    st.write(ln)
+                if st.button("Parse these reference lines and add to Reference List"):
+                    count = 0
+                    for ln in refs_found:
+                        parsed = parse_reference_string(ln)
+                        add_reference_to_session(parsed)
+                        count += 1
+                    st.success(f"Added {count} references from the document.")
+            else:
+                st.warning("No 'References' heading detected automatically. You can copy/paste the reference list into Manual reference input or paste below.")
+                pasted = st.text_area("Paste the reference list from the document here (one per line):", height=180)
+                if st.button("Parse pasted references and add"):
+                    lines = [l.strip() for l in pasted.splitlines() if l.strip()]
+                    for ln in lines:
+                        parsed = parse_reference_string(ln)
+                        add_reference_to_session(parsed)
+                    st.success(f"Parsed & added {len(lines)} references.")
+with right_col:
+    st.subheader("Reference List (Leeds Harvard)")
+    # Reference list controls
+    c1, c2, c3 = st.columns([1, 1, 1])
+    with c1:
+        if st.button("Save references (JSON)"):
+            # prepare JSON bytes
+            js = json.dumps(st.session_state.references, indent=2)
+            st.download_button("Download JSON", data=js, file_name="references.json", mime="application/json")
+    with c2:
+        if st.button("Export to Word (.docx)"):
+            if not st.session_state.references:
+                st.warning("Reference list is empty.")
+            else:
+                docx_buf = generate_docx_reference_list(st.session_state.references)
+                st.download_button("Download Reference List (.docx)", data=docx_buf.getvalue(),
+                                   file_name="Reference_List.docx", mime="application/vnd.openxmlformats-officedocument.wordprocessingml.document")
+    with c3:
+        if st.button("Clear references"):
+            st.session_state.references = []
+            st.success("Reference list cleared.")
+st.markdown("---")
+    if st.session_state.references:
+        # Display references in alphabetical order
+        for r in sorted(st.session_state.references, key=surname_key):
+            st.markdown(format_display_reference(r), unsafe_allow_html=True)
+    else:
+        st.info("Reference list is empty. Add parsed references from the left-hand panel or upload a document.")
+st.markdown("---")
+    st.subheader("Checks on uploaded assessment")
+    st.write("Upload the same student assessment (DOCX or PDF) to run a quick citation vs reference-list check.")
+    check_file = st.file_uploader("Upload assessment to check", type=["docx", "pdf"], key="check_file")
+    if check_file is not None:
+        if check_file.type == "application/pdf":
+            full_text = extract_text_from_pdf_file(check_file)
+        else:
+            full_text = extract_text_from_docx_file(check_file)
+        st.write("Analyzing document...")
+        results = scan_document_for_citations_and_mismatch(full_text, st.session_state.references)
+        if not results:
+            st.info("No textual content could be extracted for checks.")
+        else:
+            st.markdown("**In-text citations detected (sample):**")
+            st.write(results.get("found_citations", []))
+            if results.get("missing_in_refs"):
+                st.error("Citations in text that are NOT present in the reference list:")
+                for s in results["missing_in_refs"]:
+                    st.write(f"- {s} — student should add a full Leeds Harvard reference in the list.")
+            else:
+                st.success("All detected in-text surnames appear in the reference list.")
+            if results.get("not_cited_in_text"):
+                st.warning("References in the list that were NOT found as citations in the document (possible unused references):")
+                for s in results["not_cited_in_text"]:
+                    st.write(f"- {s} — check whether this was cited in the assessment or remove it.")
+# ==========================
+# End of app: small footer and credits
+# ==========================
+st.markdown("---")
+st.markdown(
+    """
+    <div class="small-muted">
+    This tool is educational: it identifies missing components for Leeds Harvard referencing and tells students what they should change. 
+    It does not automatically reformat students' work — that is intentional so students learn the conventions.  
+    <br><br>
+    For Leeds Harvard exact conventions, see Leeds University Library: 
+    <a href="https://library.leeds.ac.uk/info/1404/referencing/46/harvard_style" 
+    target="_blank" rel="noopener">Leeds Harvard guidance</a>.
     </div>
     """,
     unsafe_allow_html=True
 )
-st.markdown("---")
 
-# Initialise session state storage for structured references
-if "refs" not in st.session_state:
-    st.session_state["refs"] = []  # list of dicts
-
-# Left column: add / autofill reference
-left, right = st.columns([2, 3])
-with left:
-    st.subheader("➕ Add or Autofill Reference")
-    autofill_input = st.text_input("Paste DOI (10...) or URL here for autofill (or leave blank)", value="")
-    if st.button("Autofill from DOI/URL"):
-        if autofill_input.strip():
-            # determine DOI-like versus URL-like
-            candidate = autofill_input.strip()
-            data = None
-            if candidate.lower().startswith("http"):
-                # Try DOI inside URL first
-                if "doi.org/" in candidate:
-                    doi_part = candidate.split("doi.org/")[-1]
-                    data = lookup_doi(doi_part)
-                if not data:
-                    # scrape metadata
-                    data = scrape_url_for_metadata(candidate)
-            else:
-                # probably raw DOI
-                data = lookup_doi(candidate)
-            if data:
-                # Pre-fill fields in the right column by storing in session:
-                st.session_state["autofill"] = data
-                st.success("Autofill successful — check and edit fields before adding.")
-            else:
-                st.error("Autofill failed (no metadata found). You can still enter details manually.")
-        else:
-            st.error("Please paste a DOI or URL first.")
-
-    st.markdown("**Or enter details manually:**")
-
-    # Manual entry fields
-    typ = st.selectbox("Reference type", ["book", "chapter", "journal", "website", "report", "thesis"])
-    # Pre-populate from autofill if available
-    autofill = st.session_state.get("autofill", {})
-
-    author_val = st.text_input("Author(s) — surname, Initial(s).", value=autofill.get("author", ""))
-    year_val = st.text_input("Year", value=autofill.get("year", ""))
-    title_val = st.text_input("Title", value=autofill.get("title", ""))
-    # type-specific
-    place_val = st.text_input("Place (for books/reports)", value=autofill.get("place", ""))
-    publisher_val = st.text_input("Publisher", value=autofill.get("publisher", ""))
-    editors_val = st.text_input("Editors (for chapters)", value="")
-    book_title_val = st.text_input("Book title (for chapter)", value="")
-    pages_val = st.text_input("Pages (e.g. 45-60)", value=autofill.get("pages", ""))
-    journal_val = st.text_input("Journal name (for journal articles)", value=autofill.get("container", ""))
-    volume_val = st.text_input("Volume", value=autofill.get("volume", ""))
-    issue_val = st.text_input("Issue", value=autofill.get("issue", ""))
-    site_name_val = st.text_input("Website/Organisation (for websites)", value=autofill.get("author", ""))
-    url_val = st.text_input("URL (for website)", value=autofill.get("url", ""))
-    access_val = st.text_input("Accessed date (e.g. 20 September 2025)", value="")
-    org_val = st.text_input("Organisation (for reports)", value=autofill.get("author", ""))
-    degree_val = st.text_input("Degree (for theses)", value="")
-    uni_val = st.text_input("University (for theses)", value="")
-
-    if st.button("Add reference to list"):
-        # Validate minimal
-        if not author_val or not year_val or not title_val:
-            st.error("Please supply at least author, year and title.")
-        else:
-            r = {
-                "type": typ,
-                "author": author_val,
-                "year": year_val,
-                "title": title_val,
-                "place": place_val,
-                "publisher": publisher_val,
-                "editors": editors_val,
-                "book_title": book_title_val,
-                "pages": pages_val,
-                "journal": journal_val,
-                "volume": volume_val,
-                "issue": issue_val,
-                "site_name": site_name_val,
-                "url": url_val,
-                "access_date": access_val,
-                "org": org_val,
-                "degree": degree_val,
-                "university": uni_val
-            }
-            st.session_state["refs"].append(r)
-            # clear autofill for next time
-            if "autofill" in st.session_state:
-                del st.session_state["autofill"]
-            st.success("Reference added to the working list.")
-
-with right:
-    st.subheader("📖 Working Reference List (A–Z)")
-    if st.session_state.get("refs"):
-        # Sort by author surname
-        sorted_refs = sorted(st.session_state["refs"], key=lambda x: x.get("author", "").lower())
-        # display with clickable links opening in new tab
-        for r in sorted_refs:
-            display = format_reference_str(r)
-            if r.get("url"):
-                # show link icon that opens in new tab
-                # we put the link at end and set target=_blank
-                st.markdown(f"{display} <a href='{r.get('url')}' target='_blank'>🔗</a>", unsafe_allow_html=True)
-            else:
-                st.markdown(display)
-        clear_col, export_col = st.columns(2)
-        with clear_col:
-            if st.button("🗑 Clear all references"):
-                st.session_state["refs"] = []
-                st.success("All references cleared.")
-        with export_col:
-            if st.button("💾 Export reference list to Word (.docx)"):
-                # Build docx
-                doc = Document()
-                # Add logo banner at top of docx too (optional)
-                try:
-                    doc.add_picture("Header.png", width=Inches(6))
-                except Exception:
-                    pass
-                doc.add_heading("Reference List", level=1)
-                for rr in sorted_refs:
-                    docx_add_reference(doc, rr)
-                doc.add_paragraph(f"\nProduced with support from Macmillan Centre for Learning — https://www.macmillancentre.org")
-                buffer = BytesIO()
-                doc.save(buffer)
-                buffer.seek(0)
-                st.download_button("📥 Download Reference_List.docx", data=buffer, file_name="Reference_List.docx", mime="application/vnd.openxmlformats-officedocument.wordprocessingml.document")
-    else:
-        st.info("Your working reference list is empty — add or autofill a reference on the left.")
-
-st.markdown("---")
-
-# ---------------------------------------------------------
-# Upload student assessment, scan and feedback section
-# ---------------------------------------------------------
-st.subheader("📤 Upload Assessment / Scan Document for References")
-uploaded = st.file_uploader("Upload a student assignment (.docx or .pdf)", type=["docx", "pdf"])
-
-if uploaded:
-    st.info("Extracting text — please wait a moment for longer files.")
-    text = extract_text_from_file(uploaded)
-    if not text.strip():
-        st.error("No text could be extracted from this file.")
-    else:
-        citations = find_intext_citations(text)
-        highlights = sentence_highlights(text, st.session_state.get("refs", []))
-        unused = find_unused_references(citations, st.session_state.get("refs", []))
-
-        st.subheader("📊 Colour-coded Referencing Feedback")
-
-        # show progress summary
-        total_citations = len(citations)
-        matched = sum(1 for h in highlights if "correctly cited" in h[1])
-        missing = sum(1 for h in highlights if "missing from reference list" in h[1])
-        unused_count = len(unused)
-
-        st.write(f"Found {total_citations} in-text citation(s): {matched} matched, {missing} missing. Unused references: {unused_count}")
-        st.progress(min(100, int((matched / total_citations * 100) if total_citations else 0)))
-
-        # Display highlights color-coded
-        for sentence, status, colour in highlights:
-            # use small excerpt + color-coded label
-            st.markdown(f"<div style='padding:8px;border-radius:6px;background:#f8f9fa;'><span style='color:{colour};font-weight:600'>{status}</span><br><span>{sentence}</span></div>", unsafe_allow_html=True)
-
-        if unused:
-            st.write("### ❌ Unused references (appear in reference list but not cited in text)")
-            for r, status, colour in unused:
-                st.markdown(f"<div style='padding:6px;background:#fff6f6;border-left:4px solid #ff4d4d'>{format_reference_str(r)} — <span style='color:{colour};'>{status}</span></div>", unsafe_allow_html=True)
-
-        # Offer detailed report export
-        if st.button("📥 Download detailed Referencing Report (Word)"):
-            # Build report docx
-            doc = Document()
-            try:
-                doc.add_picture("Header.png", width=Inches(6))
-            except Exception:
-                pass
-            doc.add_heading("Referencing Report", level=1)
-            doc.add_heading("In-text citations (sentence context)", level=2)
-            for sentence, status, colour in highlights:
-                p = doc.add_paragraph()
-                p.add_run(textwrap.fill(sentence, 90))
-                p.add_run("\n→ " + status)
-            if unused:
-                doc.add_heading("Unused references", level=2)
-                for r, status, colour in unused:
-                    p = doc.add_paragraph()
-                    docx_add_reference(doc, r)
-                    p.add_run(" — " + status)
-            doc.add_paragraph(f"\nProduced with support from Macmillan Centre for Learning — https://www.macmillancentreforlearning.co.uk")
-            buf = BytesIO()
-            doc.save(buf)
-            buf.seek(0)
-            st.download_button("Download Referencing_Report.docx", data=buf, file_name="Referencing_Report.docx", mime="application/vnd.openxmlformats-officedocument.wordprocessingml.document")
-
-st.markdown("---")
-st.caption("If you’d like, I can add DOI lookup fallback to other APIs (CrossRef is used now), or extend the in-text citation regex to support other citation formats — tell me which formats your students use most.")
-=======
-import streamlit as st
-from leeds_harvard_tool import generate_reference  # this comes from your main tool
-
-st.set_page_config(page_title="Leeds Harvard Referencing Tool", page_icon="📚", layout="centered")
-
-st.title("📚 Leeds Harvard Referencing Checker & Guide")
-
+# --- Fixed footer with copyright and logo ---
 st.markdown(
     """
-    Use this tool to check and build Leeds Harvard references.  
-    Enter the details below and the tool will show you the correct format.  
-    This way you can learn how to structure your own references correctly.
-    """
+    <style>
+    .footer {
+        position: fixed;
+        left: 0;
+        bottom: 0;
+        width: 100%;
+        background-color: #00a2b3;
+        color: white;
+        text-align: center;
+        padding: 10px;
+        font-size: 14px;
+        z-index: 100;
+    }
+    .footer img {
+        height: 20px;
+        vertical-align: middle;
+        margin-right: 8px;
+    }
+    .footer a {
+        color: #ffffff;
+        text-decoration: none;
+        font-weight: bold;
+    }
+    </style>
+    <div class="footer">
+        <img src="assets/logo-circle.png" alt="Logo">
+        © 2025 <a href="https://macmillancentreforlearning.co.uk" target="_blank">
+        Macmillan Centre for Learning</a>
+    </div>
+    """,
+    unsafe_allow_html=True
 )
-
-# Input fields for reference details
-author = st.text_input("Author(s) (e.g., Smith, J.)")
-year = st.text_input("Year (e.g., 2023)")
-title = st.text_input("Title of Book/Article")
-publisher = st.text_input("Publisher (if applicable)")
-place = st.text_input("Place of Publication (if applicable)")
-
-# Button to generate the reference
-if st.button("Generate Reference"):
-    if author and year and title:
-        reference = generate_reference(author, year, title, publisher, place)
-        st.success(f"✅ Your Leeds Harvard reference:\n\n{reference}")
-        st.info("Tip: Compare this output with your own reference to see where you might need to amend it.")
-    else:
-        st.error("⚠️ Please fill in at least Author, Year, and Title.")
 
