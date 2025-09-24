@@ -5,3 +5,6 @@ python-docx
 docx2txt
 PyMuPDF
 PyPDF2
+openpyxl
+reportlab
+bs4
