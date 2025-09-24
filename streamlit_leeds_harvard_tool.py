@@ -388,7 +388,8 @@ def scan_document_for_citations_and_mismatch(text, references):
     for m in re.finditer(r"\b([A-Z][a-zA-Z-]+)\s*\((19|20)\d{2}\)", text):
         surname = m.group(1).strip()
         found.add(surname.lower())
-# reference surnames
+
+    # reference surnames
     ref_surnames = set()
     for r in references:
         auth = r.get("authors", "")
@@ -398,14 +399,17 @@ def scan_document_for_citations_and_mismatch(text, references):
             surname = auth.split()[0] if auth else ""
         if surname:
             ref_surnames.add(surname.lower())
-missing_in_refs = sorted(list(found - ref_surnames))
+
+    missing_in_refs = sorted(list(found - ref_surnames))
     not_cited = sorted(list(ref_surnames - found))
+
     return {
         "found_citations": sorted(list(found)),
         "referenced_surnames": sorted(list(ref_surnames)),
         "missing_in_refs": missing_in_refs,
         "not_cited_in_text": not_cited
     }
+
 # ==========================
 # UI layout: left = inputs, right = reference list
 # ==========================
