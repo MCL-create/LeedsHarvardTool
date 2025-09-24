@@ -1,3 +1,8 @@
+import os
+port = int(os.environ.get("PORT", 8501))
+st.set_page_config(page_title="Leeds Harvard Referencing Tool")
+os.environ["STREAMLIT_SERVER_PORT"] = str(port)
+
 import streamlit as st
 import requests, re
 from bs4 import BeautifulSoup
@@ -256,3 +261,8 @@ st.markdown(
     "<hr><p style='text-align:center; color:#37474f;'>© 2025 Macmillan Centre for Learning | Leeds Harvard Referencing Tool</p>",
     unsafe_allow_html=True
 )
+import os
+
+if __name__ == "__main__":
+    port = int(os.environ.get("PORT", 8501))
+    st.run(server_port=port)
