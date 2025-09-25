@@ -28,13 +28,21 @@ reference_list = st.session_state.reference_list
 # ------------------------------
 # Header with Logo
 # ------------------------------
-col1, col2 = st.columns([1, 6])
-with col1:
-    st.image("logo.png", use_container_width=True)  # circular logo
-with col2:
-    st.markdown("<h1 style='color:#00a2b3;'>Leeds Harvard Referencing Tool</h1>", unsafe_allow_html=True)
-    st.markdown("<p style='color:#37474f;'>Helping learners and tutors format, check, and manage references</p>", unsafe_allow_html=True)
-
+# --- Header ---
+st.markdown(
+    """
+    <div style="
+        background-color: #00a2b3;
+        padding: 15px;
+        border-radius: 8px;
+        text-align: center;
+    ">
+        <h1 style="color: #ffffff; margin: 0;">Leeds Harvard Referencing Checker</h1>
+        <p style="color: #ffffff; margin: 0; font-size: 16px;">Developed by Macmillan Centre for Learning</p>
+    </div>
+    """,
+    unsafe_allow_html=True
+)
 # ------------------------------
 # Sidebar Navigation
 # ------------------------------
@@ -239,7 +247,27 @@ elif page == "How to Use":
 # ------------------------------
 # Footer
 # ------------------------------
+# --- Footer ---
+try:
+    st.image("footer_logo.png", width=120)  # optional footer logo if you want one
+except Exception:
+    st.markdown("<div style='font-size:20px; color:#00a2b3; text-align:center;'>MCL</div>", unsafe_allow_html=True)
+
 st.markdown(
-    "<hr><center><p style='color:#37474f;'>© 2025 Macmillan Centre for Learning | Leeds Harvard Referencing Tool</p></center>",
+    """
+    <hr style="border:1px solid #80cbc4;">
+    <div style="
+        background-color: #f1f8e9;
+        padding: 10px;
+        text-align: center;
+        border-radius: 8px;
+        color: #37474f;
+        font-size: 14px;
+    ">
+        <p>© 2025 <a href="https://macmillancentreforlearning.co.uk" target="_blank" style="color:#0288d1; text-decoration:none;">
+        Macmillan Centre for Learning</a> | Built with Streamlit</p>
+    </div>
+    """,
     unsafe_allow_html=True
 )
+
