@@ -12,7 +12,7 @@ if 'bibliography' not in st.session_state:
     st.session_state.bibliography = []
 
 # --- MCL BRANDING: HEADER ---
-# Updated path to match your GitHub structure: assets/Header.png
+# We use a robust path and check if the file exists to prevent errors
 try:
     st.image("assets/Header.png", use_container_width=True)
 except Exception:
@@ -37,15 +37,15 @@ with tab1:
         publisher = st.text_input("Publisher", placeholder="Pearson")
         submit_book = st.form_submit_button("Generate & Add to List")
 
-    if submit_book:
-        if authors and year and title:
-            auth_list = [a.strip() for a in authors.split(",")]
-            result = generate_book_reference(auth_list, year, title, publisher, place, edition)
-            st.session_state.bibliography.append(result)
-            st.success("Reference added to your Bibliography!")
-            st.markdown(f"> {result}")
-        else:
-            st.error("Please fill in at least Authors, Year, and Title.")
+        if submit_book:
+            if authors and year and title:
+                auth_list = [a.strip() for a in authors.split(",")]
+                result = generate_book_reference(auth_list, year, title, publisher, place, edition)
+                st.session_state.bibliography.append(result)
+                st.success("Reference added to your Bibliography!")
+                st.markdown(f"> {result}")
+            else:
+                st.error("Please fill in at least Authors, Year, and Title.")
 
 # --- TAB 2: JOURNAL ---
 with tab2:
@@ -60,12 +60,15 @@ with tab2:
         pgs = st.text_input("Page Numbers")
         submit_journal = st.form_submit_button("Generate & Add to List")
 
-    if submit_journal:
-        auth_list = [a.strip() for a in j_authors.split(",")]
-        result = generate_journal_reference(auth_list, j_year, art_title, jou_title, vol, iss, pgs)
-        st.session_state.bibliography.append(result)
-        st.success("Reference added!")
-        st.markdown(f"> {result}")
+        if submit_journal:
+            if j_authors and j_year:
+                auth_list = [a.strip() for a in j_authors.split(",")]
+                result = generate_journal_reference(auth_list, j_year, art_title, jou_title, vol, iss, pgs)
+                st.session_state.bibliography.append(result)
+                st.success("Reference added!")
+                st.markdown(f"> {result}")
+            else:
+                st.error("Authors and Year are required.")
 
 # --- TAB 3: WEBSITE ---
 with tab3:
@@ -78,46 +81,52 @@ with tab3:
         access = st.text_input("Date Accessed")
         submit_web = st.form_submit_button("Generate & Add to List")
 
-    if submit_web:
-        auth_list = [a.strip() for a in w_authors.split(",")]
-        result = generate_website_reference(auth_list, w_year, w_title, url, access)
-        st.session_state.bibliography.append(result)
-        st.success("Reference added!")
-        st.markdown(f"> {result}")
+        if submit_web:
+            if w_authors and w_year:
+                auth_list = [a.strip() for a in w_authors.split(",")]
+                result = generate_website_reference(auth_list, w_year, w_title, url, access)
+                st.session_state.bibliography.append(result)
+                st.success("Reference added!")
+                st.markdown(f"> {result}")
+            else:
+                st.error("Author and Year are required.")
 
 # --- TAB 4: BIBLIOGRAPHY ---
 with tab4:
     st.header("Final Bibliography")
     if not st.session_state.bibliography:
-        st.info("Your bibliography is empty.")
+        st.info("Your bibliography is empty. Generate references in other tabs first.")
     else:
+        # Strict Alphabetical Sorting
         st.session_state.bibliography.sort(key=get_sort_key)
         for ref in st.session_state.bibliography:
             st.markdown(f"- {ref}")
         
-        if st.button("Clear List"):
-            st.session_state.bibliography = []
-            st.rerun()
-
-        # Word Export
-        doc = Document()
-        doc.add_heading('Bibliography', 0)
-        for ref in st.session_state.bibliography:
-            p = doc.add_paragraph()
-            parts = ref.split('*')
-            for index, part in enumerate(parts):
-                run = p.add_run(part)
-                if index % 2 != 0: run.italic = True
+        col1, col2 = st.columns(2)
+        with col1:
+            if st.button("🗑️ Clear Entire List"):
+                st.session_state.bibliography = []
+                st.rerun()
         
-        buffer = BytesIO()
-        doc.save(buffer)
-        buffer.seek(0)
-        st.download_button("📥 Download as Word (.docx)", buffer, "Bibliography.docx")
+        with col2:
+            doc = Document()
+            doc.add_heading('Bibliography', 0)
+            for ref in st.session_state.bibliography:
+                p = doc.add_paragraph()
+                parts = ref.split('*')
+                for index, part in enumerate(parts):
+                    run = p.add_run(part)
+                    if index % 2 != 0: run.italic = True
+            
+            buffer = BytesIO()
+            doc.save(buffer)
+            buffer.seek(0)
+            st.download_button("📥 Download as Word (.docx)", buffer, "MCL_Bibliography.docx")
 
 # --- TAB 5: ESSAY AUDIT ---
 with tab5:
     st.header("🔍 Essay Citation Audit")
-    st.write("Upload your essay to check for in-text citations.")
+    st.write("Upload your essay to check if your in-text citations match your bibliography.")
     
     uploaded_file = st.file_uploader("Upload Essay (.docx)", type="docx")
     
@@ -125,23 +134,32 @@ with tab5:
         doc = Document(uploaded_file)
         full_text = " ".join([para.text for para in doc.paragraphs])
         
-        # Regex to find (Author, Year) or (Author Year)
-        citations_found = re.findall(r'\(([^)]+ \d{4})\)', full_text)
+        # Regex to find Leeds standard: (Author, Year) or (Author Year)
+        citations_found = re.findall(r'\(([^)]+ \d{4}[^)]*)\)', full_text)
         
         if citations_found:
-            st.success(f"Found {len(citations_found)} potential in-text citations!")
-            unique_cites = sorted(list(set(citations_found)))
-            for cite in unique_cites:
-                st.info(f"Detected: {cite}")
+            st.success(f"Found {len(citations_found)} potential citations.")
+            
+            # Cross-check with bibliography
+            bib_text = " ".join(st.session_state.bibliography).lower()
+            
+            results_data = []
+            for cite in set(citations_found):
+                # Check if the author's name from the citation exists in the bibliography
+                author_name = cite.split(',')[0].split(' ')[0].lower()
+                status = "✅ Found in Bibliography" if author_name in bib_text else "⚠️ Missing from Bibliography"
+                results_data.append({"Citation": f"({cite})", "Status": status})
+            
+            st.table(results_data)
         else:
-            st.warning("No standard in-text citations detected in this document.")
+            st.warning("No standard in-text citations (e.g. Smith, 2024) were detected in the text.")
 
 # --- MCL FOOTER ---
 st.markdown("---")
 st.markdown(
-    "<div style='text-align: center; color: grey; font-size: 0.8em;'>"
-    "© 2026 Macmillan Centre for Learning. "
-    "<a href='https://www.macmillancentreforlearning.co.uk/home-2/' target='_blank' style='color: #007bff; text-decoration: none;'>"
+    "<div style='text-align: center; color: grey; font-size: 0.9em;'>"
+    "© 2026 Macmillan Centre for Learning. <br>"
+    "<a href='https://www.macmillancentreforlearning.co.uk/home-2/' target='_blank' style='color: #007bff; font-weight: bold; text-decoration: none;'>"
     "Go to Macmillan Centre for Learning</a>"
     "</div>", 
     unsafe_allow_html=True
