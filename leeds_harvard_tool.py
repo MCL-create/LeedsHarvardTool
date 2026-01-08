@@ -1,66 +1,43 @@
 # leeds_harvard_tool.py
 
+def get_sort_key(reference_text):
+    """
+    Strict Leeds Alphabetical Sorting:
+    Ignores 'The ', 'A ', and 'An ' at the start of corporate authors.
+    """
+    ref = reference_text.lower().strip()
+    # Remove leading asterisks if the title comes first
+    ref = ref.lstrip('*')
+    
+    prefixes = ['the ', 'a ', 'an ']
+    for prefix in prefixes:
+        if ref.startswith(prefix):
+            return ref[len(prefix):]
+    return ref
+
 def format_authors(authors_list):
-    """
-    Formats a list of authors according to Leeds Harvard rules:
-    - 1 author: Smith, J.
-    - 2 authors: Smith, J. and Jones, P.
-    - 3+ authors: Smith, J. et al.
-    """
+    """Handles the Leeds et al. rules."""
     if not authors_list:
         return "Unknown Author"
-    
-    # Clean whitespace from each author name
     authors = [a.strip() for a in authors_list if a.strip()]
-    
-    num_authors = len(authors)
-    
-    if num_authors == 1:
+    num = len(authors)
+    if num == 1:
         return authors[0]
-    elif num_authors == 2:
+    elif num == 2:
         return f"{authors[0]} and {authors[1]}"
     else:
         return f"{authors[0]} et al."
 
 def generate_book_reference(authors, year, title, publisher, place, edition=""):
-    """
-    Generates a reference for a printed book.
-    Format: Author(s) (Year) Title. Edition (if not 1st). Place: Publisher.
-    """
     auth_str = format_authors(authors)
-    
-    # Leeds style: Titles are italicized. Edition is only included if not the 1st.
-    # We use * for markdown italics which Streamlit and GitHub render correctly.
-    ref = f"{auth_str} ({year}) *{title}*."
-    
-    if edition:
-        # Standardize edition format (e.g., '2nd edn.')
-        ed_clean = edition.lower().replace("edition", "edn.").replace("ed.", "edn.")
-        ref += f" {ed_clean}"
-        
-    ref += f" {place}: {publisher}."
-    
-    return ref
+    ed_clean = edition.lower().replace("edition", "edn.").replace("ed.", "edn.")
+    ed_str = f" {ed_clean}" if edition else ""
+    return f"{auth_str} ({year}) *{title}*.{ed_str} {place}: {publisher}."
 
-def generate_journal_reference(authors, year, article_title, journal_title, volume, issue, pages):
-    """
-    Generates a reference for a journal article.
-    Format: Author(s) (Year) Article title. Journal Title. Volume(Issue), pp.pages.
-    """
+def generate_journal_reference(authors, year, art_title, jou_title, vol, iss, pgs):
     auth_str = format_authors(authors)
-    
-    # Article title is plain, Journal Title is italicized
-    ref = f"{auth_str} ({year}) {article_title}. *{journal_title}*. **{volume}**({issue}), pp.{pages}."
-    
-    return ref
+    return f"{auth_str} ({year}) {art_title}. *{jou_title}*. **{vol}**({iss}), pp.{pgs}."
 
 def generate_website_reference(authors, year, title, url, accessed_date):
-    """
-    Generates a reference for a website.
-    Format: Author(s) (Year) Title. [Online]. [Accessed date]. Available from: URL
-    """
     auth_str = format_authors(authors)
-    
-    ref = f"{auth_str} ({year}) *{title}*. [Online]. [Accessed {accessed_date}]. Available from: {url}"
-    
-    return ref
+    return f"{auth_str} ({year}) *{title}*. [Online]. [Accessed {accessed_date}]. Available from: {url}"
