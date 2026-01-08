@@ -20,24 +20,64 @@ if 'bibliography' not in st.session_state:
     st.session_state.bibliography = []
 
 # --- 2. FIXED HEADER LOGIC ---
-# Using 'use_column_width' to fix the Render TypeError
-img_path = os.path.join(os.path.dirname(__file__), "assets", "Header.png")
+# Using 'use_column_width' as requested by the server error log
+img_path = "assets/Header.png"
 
 if os.path.exists(img_path):
     st.image(img_path, use_column_width=True)
 else:
-    # Fallback to try relative path directly
-    try:
-        st.image("assets/Header.png", use_column_width=True)
-    except:
-        st.title("📚 MCL Leeds Harvard Pro Tool")
+    st.title("📚 MCL Leeds Harvard Pro Tool")
 
 # --- 3. TABS ---
 tab1, tab2, tab3, tab4, tab5 = st.tabs([
     "📖 Book", "📰 Journal Article", "🌐 Website", "📋 My Bibliography", "🔍 Essay Audit"
 ])
 
-# (Keep your existing Tab 1-3 logic for inputs here)
+# --- TAB 1: BOOK ---
+with tab1:
+    st.header("Book Reference")
+    with st.form("book_form"):
+        authors = st.text_input("Authors (comma separated)", placeholder="e.g. Smith, J., Doe, R.")
+        year = st.text_input("Year of Publication")
+        title = st.text_input("Book Title")
+        edition = st.text_input("Edition (leave blank if 1st)")
+        place = st.text_input("Place of Publication")
+        publisher = st.text_input("Publisher")
+        if st.form_submit_button("Generate & Add to List"):
+            if authors and year and title:
+                res = generate_book_reference([a.strip() for a in authors.split(",")], year, title, publisher, place, edition)
+                st.session_state.bibliography.append(res)
+                st.success("Reference added!")
+
+# --- TAB 2: JOURNAL ---
+with tab2:
+    st.header("Journal Reference")
+    with st.form("journal_form"):
+        j_auth = st.text_input("Authors")
+        j_yr = st.text_input("Year")
+        a_tit = st.text_input("Article Title")
+        j_tit = st.text_input("Journal Title")
+        vol = st.text_input("Volume")
+        iss = st.text_input("Issue")
+        pgs = st.text_input("Pages")
+        if st.form_submit_button("Generate & Add"):
+            res = generate_journal_reference([a.strip() for a in j_auth.split(",")], j_yr, a_tit, j_tit, vol, iss, pgs)
+            st.session_state.bibliography.append(res)
+            st.success("Reference added!")
+
+# --- TAB 3: WEBSITE ---
+with tab3:
+    st.header("Website Reference")
+    with st.form("web_form"):
+        w_auth = st.text_input("Author/Org")
+        w_yr = st.text_input("Year")
+        w_tit = st.text_input("Page Title")
+        url = st.text_input("URL")
+        acc = st.text_input("Date Accessed")
+        if st.form_submit_button("Generate & Add"):
+            res = generate_website_reference([a.strip() for a in w_auth.split(",")], w_yr, w_tit, url, acc)
+            st.session_state.bibliography.append(res)
+            st.success("Reference added!")
 
 # --- TAB 4: BIBLIOGRAPHY ---
 with tab4:
@@ -49,7 +89,6 @@ with tab4:
         for ref in st.session_state.bibliography:
             st.markdown(f"- {ref}")
         
-        # Word Export
         doc = Document()
         doc.add_heading('Bibliography', 0)
         for ref in st.session_state.bibliography:
@@ -62,9 +101,6 @@ with tab4:
         buf = BytesIO()
         doc.save(buf)
         st.download_button("📥 Download Bibliography (.docx)", buf.getvalue(), "MCL_Bibliography.docx")
-        if st.button("Clear List"):
-            st.session_state.bibliography = []
-            st.rerun()
 
 # --- TAB 5: ESSAY AUDIT & REPORT ---
 with tab5:
@@ -74,25 +110,21 @@ with tab5:
     if uploaded_file:
         doc = Document(uploaded_file)
         full_text = " ".join([p.text for p in doc.paragraphs])
-        
-        # Regex tuned for Leeds Harvard: (Author, Year)
         citations_found = re.findall(r'\(([^)]{5,100}?\d{4}[^)]{0,20}?)\)', full_text)
         
         if citations_found:
-            st.write(f"### Results: {len(citations_found)} Citations")
             bib_joined = " ".join(st.session_state.bibliography).lower()
-            
             audit_list = []
             report_text = "MCL REFERENCE AUDIT REPORT\n" + "="*30 + "\n\n"
             
             for cite in sorted(list(set(citations_found))):
                 main_name = cite.split(',')[0].split(' ')[0].lower()
-                status = "✅ Matched" if main_name in bib_joined else "⚠️ Missing from List"
-                audit_list.append({"Citation Found": f"({cite})", "Status": status})
+                status = "✅ Matched" if main_name in bib_joined else "⚠️ Missing"
+                audit_list.append({"Citation": f"({cite})", "Status": status})
                 report_text += f"[{status}] ({cite})\n"
             
             st.table(audit_list)
-            st.download_button("📥 Download Audit Report (.txt)", report_text, "MCL_Audit_Report.txt")
+            st.download_button("📥 Download Report (.txt)", report_text, "MCL_Audit.txt")
 
 # --- MCL FOOTER ---
 st.markdown("---")
