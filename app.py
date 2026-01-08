@@ -8,19 +8,13 @@ from leeds_harvard_tool import generate_book_reference, generate_journal_referen
 # --- 1. MCL BRANDED THEME ---
 st.set_page_config(page_title="MCL Leeds Harvard Tool", page_icon="📚", layout="centered")
 
-# Custom CSS using official MCL Hex Codes
 st.markdown(f"""
     <style>
     .stApp {{ background-color: #e6f7f8; color: #37474f; }}
     .stTabs [aria-selected="true"] {{ background-color: #009688 !important; color: white !important; }}
-    div.stButton > button {{ background-color: #009688; color: white; border-radius: 5px; }}
-    .explanation-box {{ 
-        background-color: #dff7f9; 
-        padding: 15px; 
-        border-radius: 10px; 
-        border-left: 5px solid #f9a825; 
-        margin-top: 10px;
-    }}
+    div.stButton > button {{ background-color: #009688; color: white; border-radius: 5px; font-weight: bold; width: 100%; }}
+    .mcl-explanation {{ background-color: #ffffff; padding: 20px; border-radius: 10px; border-left: 8px solid #f9a825; margin: 20px 0; }}
+    .success-card {{ background-color: #d4edda; color: #155724; padding: 20px; border-radius: 10px; text-align: center; border: 2px solid #c3e6cb; }}
     </style>
 """, unsafe_allow_html=True)
 
@@ -33,58 +27,66 @@ if os.path.exists(img_path):
     st.image(img_path, use_column_width=True)
 
 # --- 3. TABS ---
-# Adding unique keys to tabs and widgets ensures they remain active
 tab1, tab2, tab3, tab4, tab5 = st.tabs([
     "📖 Book", "📰 Journal", "🌐 Website", "📋 Bibliography", "🔍 Essay Audit"
 ])
 
-# Example of a Fixed Interactive Tab
+# --- TAB 1: BOOK (Preserved & Active) ---
 with tab1:
     st.header("Book Reference")
-    with st.form("book_form_v2"):
-        auth = st.text_input("Authors (comma separated)", key="book_auth")
-        yr = st.text_input("Year", key="book_year")
-        tit = st.text_input("Book Title", key="book_title")
-        if st.form_submit_button("Add to Bibliography"):
+    with st.form("book_active", clear_on_submit=True):
+        auth = st.text_input("Authors", key="k_b_auth")
+        yr = st.text_input("Year", key="k_b_yr")
+        tit = st.text_input("Title", key="k_b_tit")
+        if st.form_submit_button("Add Reference"):
             if auth and yr and tit:
                 res = generate_book_reference([a.strip() for a in auth.split(",")], yr, tit, "", "", "")
                 st.session_state.bibliography.append(res)
-                st.success("Added!")
+                st.success("Reference Saved!")
 
-# --- TAB 5: AUDIT WITH EXPLANATIONS ---
+# --- TAB 5: AUDIT WITH SUCCESS CELEBRATION ---
 with tab5:
     st.header("🔍 Essay Citation Audit")
-    uploaded_file = st.file_uploader("Upload Essay (.docx)", type="docx", key="audit_uploader_v2")
+    uploaded_file = st.file_uploader("Upload Essay (.docx)", type="docx", key="mcl_final_audit")
     
     if uploaded_file:
-        if st.button("Run Audit & Generate Report", key="audit_trigger"):
+        if st.button("Run Audit", key="run_final_audit"):
             doc = Document(uploaded_file)
-            full_text = " ".join([p.text for p in doc.paragraphs])
-            cites = re.findall(r'\(([^)]{5,100}?\d{4}[^)]{0,20}?)\)', full_text)
+            text = " ".join([p.text for p in doc.paragraphs])
+            cites = re.findall(r'\(([^)]{5,100}?\d{4}[^)]{0,20}?)\)', text)
             
             if cites:
-                bib_content = " ".join(st.session_state.bibliography).lower()
-                audit_results = []
+                bib_low = " ".join(st.session_state.bibliography).lower()
+                results = []
                 missing_count = 0
                 
                 for c in sorted(list(set(cites))):
                     name = c.split(',')[0].split(' ')[0].lower()
-                    found = name in bib_content
-                    status = "✅ Matched" if found else "⚠️ Missing"
+                    found = name in bib_low
                     if not found: missing_count += 1
-                    audit_results.append({"Citation": f"({c})", "Status": status})
+                    results.append({"Citation": f"({c})", "Status": "✅ Matched" if found else "⚠️ Missing"})
                 
-                st.table(audit_results)
-                
-                # --- EXPLANATION SECTION ---
-                if missing_count > 0:
-                    st.markdown('<div class="explanation-box">', unsafe_allow_html=True)
-                    st.subheader("💡 Why are some citations missing?")
-                    st.write("""
-                    1. **Spelling Mismatch:** Ensure the surname in your essay matches the bibliography exactly.
-                    2. **Unsaved Progress:** Check if you added the reference in the 'Book' or 'Journal' tab before running the audit.
-                    3. **Date Formatting:** The tool looks for 4-digit years. Ensure your citation includes the year of publication.
-                    """)
-                    st.markdown('</div>', unsafe_allow_html=True)
-                
-                st.download_button("📥 Download Report (.txt)", "Report Content...", "MCL_Audit.txt", key="dl_report_v2")
+                st.table(results)
+
+                # --- SUCCESS SCREEN ---
+                if missing_count == 0:
+                    st.balloons()
+                    st.markdown("""
+                        <div class="success-card">
+                        <h2>🎉 Perfect Match!</h2>
+                        <p>All in-text citations were found in your bibliography. Your academic referencing is spot on!</p>
+                        </div>
+                    """, unsafe_allow_html=True)
+                else:
+                    # Educational Feedback (Preserved)
+                    st.markdown(f"""
+                        <div class="mcl-explanation">
+                        <h4>💡 Fixing {missing_count} Missing Items</h4>
+                        <p>Check your <b>Spelling</b> and ensure you added these to the <b>Bibliography</b> tab before auditing.</p>
+                        </div>
+                    """, unsafe_allow_html=True)
+
+                # Report Download (Preserved)
+                report = "MCL AUDIT REPORT\n" + "="*20 + "\n"
+                for r in results: report += f"[{r['Status']}] {r['Citation']}\n"
+                st.download_button("📥 Download Report", report, "MCL_Audit.txt", key="dl_final")
