@@ -126,33 +126,53 @@ with tab4:
 # --- TAB 5: ESSAY AUDIT ---
 with tab5:
     st.header("🔍 Essay Citation Audit")
-    st.write("Upload your essay to check if your in-text citations match your bibliography.")
+    st.write("Upload your essay (.docx) to check if your in-text citations match your bibliography.")
     
-    uploaded_file = st.file_uploader("Upload Essay (.docx)", type="docx")
+    # The file uploader
+    uploaded_file = st.file_uploader("Choose your essay file", type="docx", key="essay_uploader")
     
-    if uploaded_file:
-        doc = Document(uploaded_file)
-        full_text = " ".join([para.text for para in doc.paragraphs])
+    if uploaded_file is not None:
+        # Display file details so you know it's attached
+        st.info(f"📄 File attached: {uploaded_file.name}")
         
-        # Regex to find Leeds standard: (Author, Year) or (Author Year)
-        citations_found = re.findall(r'\(([^)]+ \d{4}[^)]*)\)', full_text)
-        
-        if citations_found:
-            st.success(f"Found {len(citations_found)} potential citations.")
+        if st.button("Analyze Essay Citations"):
+            try:
+                # Read the Word Document
+                doc = Document(uploaded_file)
+                paragraphs = [para.text for para in doc.paragraphs if para.text.strip() != ""]
+                full_text = " ".join(paragraphs)
+                
+                # Regex: Looks for (Author Year) or (Author, Year) or (Author et al., Year)
+                # This pattern is specifically tuned for Leeds Harvard
+                citation_pattern = r'\(([^)]*\d{4}[^)]*)\)'
+                citations_found = re.findall(citation_pattern, full_text)
+                
+                if citations_found:
+                    st.success(f"Audit Complete: {len(citations_found)} citations detected.")
+                    
+                    # Create a comparison list
+                    bib_content = " ".join(st.session_state.bibliography).lower()
+                    audit_results = []
+                    
+                    for cite in sorted(list(set(citations_found))):
+                        # Extract the first word (usually the Surname) to check against Bibliography
+                        match_word = cite.split()[0].replace(',', '').lower()
+                        
+                        if match_word in bib_content:
+                            status = "✅ Match Found"
+                        else:
+                            status = "⚠️ Missing from List"
+                        
+                        audit_results.append({"In-Text Citation": f"({cite})", "Status": status})
+                    
+                    st.table(audit_results)
+                else:
+                    st.warning("No citations were found. Ensure your citations are in brackets, e.g., (Smith, 2024).")
             
-            # Cross-check with bibliography
-            bib_text = " ".join(st.session_state.bibliography).lower()
-            
-            results_data = []
-            for cite in set(citations_found):
-                # Check if the author's name from the citation exists in the bibliography
-                author_name = cite.split(',')[0].split(' ')[0].lower()
-                status = "✅ Found in Bibliography" if author_name in bib_text else "⚠️ Missing from Bibliography"
-                results_data.append({"Citation": f"({cite})", "Status": status})
-            
-            st.table(results_data)
-        else:
-            st.warning("No standard in-text citations (e.g. Smith, 2024) were detected in the text.")
+            except Exception as e:
+                st.error(f"Error processing file: {e}")
+    else:
+        st.info("Please browse or drag and drop a .docx file to begin.")
 
 # --- MCL FOOTER ---
 st.markdown("---")
