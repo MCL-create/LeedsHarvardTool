@@ -8,15 +8,26 @@ from leeds_harvard_tool import generate_book_reference, generate_journal_referen
 # --- 1. THEME & PAGE CONFIG ---
 st.set_page_config(page_title="MCL Leeds Harvard Tool", page_icon="📚", layout="centered")
 
-# Custom CSS for MCL Branding (Professional Blues)
+# Custom CSS for MCL Branding (MCL Blue & Professional Grey)
 st.markdown("""
     <style>
+    /* Tabs styling */
     .stTabs [data-baseweb="tab-list"] { gap: 8px; }
     .stTabs [data-baseweb="tab"] {
         background-color: #f0f2f6; border-radius: 4px 4px 0px 0px; padding: 10px;
     }
     .stTabs [aria-selected="true"] { background-color: #004a99 !important; color: white !important; }
-    div.stButton > button:first-child { background-color: #004a99; color: white; border-radius: 5px; }
+    
+    /* Primary Button styling */
+    div.stButton > button:first-child { 
+        background-color: #004a99; 
+        color: white; 
+        border-radius: 5px;
+        font-weight: bold;
+    }
+    
+    /* Success/Info box adjustments */
+    .stAlert { border-left: 5px solid #004a99; }
     </style>
 """, unsafe_allow_html=True)
 
@@ -24,36 +35,84 @@ st.markdown("""
 if 'bibliography' not in st.session_state:
     st.session_state.bibliography = []
 
-# --- 2. HEADER LOGIC ---
-# Using absolute pathing to ensure Render finds the asset
-base_path = os.path.dirname(__file__)
-img_path = os.path.join(base_path, "assets", "Header.png")
+# --- 2. HEADER LOGIC (FIXED FOR COMPATIBILITY) ---
+# Using use_column_width instead of use_container_width to fix Render Error
+img_path = os.path.join(os.path.dirname(__file__), "assets", "Header.png")
 
 if os.path.exists(img_path):
-    st.image(img_path, use_container_width=True)
+    st.image(img_path, use_column_width=True)
 else:
-    # Fallback if image path is different on server
-    st.image("assets/Header.png", use_container_width=True)
+    # Double check relative path if absolute fails
+    try:
+        st.image("assets/Header.png", use_column_width=True)
+    except:
+        st.title("📚 MCL Leeds Harvard Pro Tool")
 
 # --- 3. TABS ---
 tab1, tab2, tab3, tab4, tab5 = st.tabs([
     "📖 Book", "📰 Journal Article", "🌐 Website", "📋 My Bibliography", "🔍 Essay Audit"
 ])
 
-# (Keep your existing Tab 1-3 logic here, ensuring they are inside 'with tabX:' blocks)
-# [Tab 1: Book, Tab 2: Journal, Tab 3: Website code remains unchanged]
+# --- TAB 1: BOOK ---
+with tab1:
+    st.header("Book Reference")
+    with st.form("book_form"):
+        authors = st.text_input("Authors (comma separated)", placeholder="e.g. Smith, J., Doe, R.")
+        year = st.text_input("Year of Publication")
+        title = st.text_input("Book Title")
+        edition = st.text_input("Edition (leave blank if 1st)")
+        place = st.text_input("Place of Publication")
+        publisher = st.text_input("Publisher")
+        if st.form_submit_button("Generate & Add to List"):
+            if authors and year and title:
+                res = generate_book_reference([a.strip() for a in authors.split(",")], year, title, publisher, place, edition)
+                st.session_state.bibliography.append(res)
+                st.success("Reference added to Bibliography!")
+            else: st.error("Please fill in Authors, Year, and Title.")
+
+# --- TAB 2: JOURNAL ---
+with tab2:
+    st.header("Journal Reference")
+    with st.form("journal_form"):
+        j_auth = st.text_input("Authors")
+        j_yr = st.text_input("Year")
+        a_tit = st.text_input("Article Title")
+        j_tit = st.text_input("Journal Title")
+        vol = st.text_input("Volume")
+        iss = st.text_input("Issue/Part")
+        pgs = st.text_input("Pages")
+        if st.form_submit_button("Generate & Add"):
+            if j_auth and j_yr:
+                res = generate_journal_reference([a.strip() for a in j_auth.split(",")], j_yr, a_tit, j_tit, vol, iss, pgs)
+                st.session_state.bibliography.append(res)
+                st.success("Reference added!")
+
+# --- TAB 3: WEBSITE ---
+with tab3:
+    st.header("Website Reference")
+    with st.form("web_form"):
+        w_auth = st.text_input("Author or Organisation")
+        w_yr = st.text_input("Year")
+        w_tit = st.text_input("Page Title")
+        url = st.text_input("URL")
+        acc = st.text_input("Date Accessed")
+        if st.form_submit_button("Generate & Add"):
+            if w_auth and w_yr:
+                res = generate_website_reference([a.strip() for a in w_auth.split(",")], w_yr, w_tit, url, acc)
+                st.session_state.bibliography.append(res)
+                st.success("Reference added!")
 
 # --- TAB 4: BIBLIOGRAPHY ---
 with tab4:
     st.header("Final Bibliography")
     if not st.session_state.bibliography:
-        st.info("Your list is empty.")
+        st.info("Your list is empty. Add references in the other tabs first.")
     else:
         st.session_state.bibliography.sort(key=get_sort_key)
         for ref in st.session_state.bibliography:
             st.markdown(f"- {ref}")
         
-        # Word Export
+        # Word Export with italics preservation
         doc = Document()
         doc.add_heading('Bibliography', 0)
         for ref in st.session_state.bibliography:
@@ -71,7 +130,7 @@ with tab4:
             st.session_state.bibliography = []
             st.rerun()
 
-# --- TAB 5: ESSAY AUDIT & REPORT ---
+# --- TAB 5: ESSAY AUDIT & MISSING REPORT ---
 with tab5:
     st.header("🔍 Essay Citation Audit")
     uploaded_file = st.file_uploader("Upload Essay (.docx)", type="docx")
@@ -80,11 +139,11 @@ with tab5:
         doc = Document(uploaded_file)
         full_text = " ".join([p.text for p in doc.paragraphs])
         
-        # Regex tuned for Leeds Harvard: (Author, Year)
+        # Precision Regex for Leeds Harvard (Author, Year)
         citations_found = re.findall(r'\(([^)]{5,100}?\d{4}[^)]{0,20}?)\)', full_text)
         
         if citations_found:
-            st.write(f"### Results: {len(citations_found)} Citations Identified")
+            st.write(f"### Found {len(citations_found)} Citations")
             bib_joined = " ".join(st.session_state.bibliography).lower()
             
             audit_list = []
@@ -100,15 +159,15 @@ with tab5:
             
             st.table(audit_list)
             
-            # THE OUTPUT REPORT
+            # THE OUTPUT REPORT DOWNLOAD
             st.download_button(
-                label="📥 Download Audit Report (.txt)",
+                label="📥 Download Missing Citations Report (.txt)",
                 data=report_text,
                 file_name="MCL_Audit_Report.txt",
                 mime="text/plain"
             )
         else:
-            st.warning("No citations detected. Ensure they follow (Author, Year).")
+            st.warning("No citations detected. Ensure they follow the (Author, Year) format.")
 
 # --- MCL FOOTER ---
 st.markdown("---")
