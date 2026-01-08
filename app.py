@@ -1,22 +1,22 @@
 import streamlit as st
 from io import BytesIO
 from docx import Document
-from leeds_harvard_tool import generate_book_reference, generate_journal_reference, generate_website_reference
+from leeds_harvard_tool import generate_book_reference, generate_journal_reference, generate_website_reference, get_sort_key
 
 # Page Config
-st.set_page_config(page_title="Leeds Harvard Referencing Tool", page_icon="📚")
+st.set_page_config(page_title="Leeds Harvard Pro Tool", page_icon="📚")
 
-# 1. NEW: Initialize Bibliography Storage
+# Initialize Bibliography Storage
 if 'bibliography' not in st.session_state:
     st.session_state.bibliography = []
 
-st.title("📚 Leeds Harvard Referencing Tool")
+st.title("📚 Leeds Harvard Pro Tool")
 st.write("Generate accurate references and download your full bibliography.")
 
-# 2. Tabs (Kept exactly as yours, added one for Bibliography)
+# Tabs
 tab1, tab2, tab3, tab_final = st.tabs(["📖 Book", "📰 Journal Article", "🌐 Website", "📋 My Bibliography"])
 
-# --- TAB 1: BOOK (Updated with 'Add' logic) ---
+# --- TAB 1: BOOK ---
 with tab1:
     st.header("Book Reference")
     with st.form("book_form"):
@@ -76,16 +76,15 @@ with tab3:
         st.success("Reference added to your Bibliography tab!")
         st.markdown(f"> {result}")
 
-# --- TAB 4: NEW EXPORT FEATURE ---
+# --- TAB 4: THE BIBLIOGRAPHY EXPORT ---
 with tab_final:
     st.header("Final Bibliography")
     if not st.session_state.bibliography:
         st.info("Your bibliography is empty. Generate references in the other tabs to see them here.")
     else:
-        # Sort Alphabetically (A Leeds Requirement)
-        st.session_state.bibliography.sort()
+        # Strict Sorting using the get_sort_key
+        st.session_state.bibliography.sort(key=get_sort_key)
         
-        # Display the list
         for ref in st.session_state.bibliography:
             st.markdown(f"- {ref}")
         
@@ -93,11 +92,18 @@ with tab_final:
             st.session_state.bibliography = []
             st.rerun()
 
-        # Generate Word Doc
+        # Generate Word Doc with Italics Preservation
         doc = Document()
         doc.add_heading('Bibliography', 0)
+        
         for ref in st.session_state.bibliography:
-            doc.add_paragraph(ref.replace("*", "")) # Strip markdown stars for Word
+            p = doc.add_paragraph()
+            # This logic splits the string by * and turns italics back on for those parts
+            parts = ref.split('*')
+            for index, part in enumerate(parts):
+                run = p.add_run(part)
+                if index % 2 != 0: 
+                    run.italic = True
         
         buffer = BytesIO()
         doc.save(buffer)
@@ -106,6 +112,6 @@ with tab_final:
         st.download_button(
             label="📥 Download as Word (.docx)",
             data=buffer,
-            file_name="Bibliography.docx",
+            file_name="Leeds_Harvard_Bibliography.docx",
             mime="application/vnd.openxmlformats-officedocument.wordprocessingml.document"
         )
