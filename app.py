@@ -1,16 +1,22 @@
 import streamlit as st
+from io import BytesIO
+from docx import Document
 from leeds_harvard_tool import generate_book_reference, generate_journal_reference, generate_website_reference
 
 # Page Config
 st.set_page_config(page_title="Leeds Harvard Referencing Tool", page_icon="📚")
 
+# 1. NEW: Initialize Bibliography Storage
+if 'bibliography' not in st.session_state:
+    st.session_state.bibliography = []
+
 st.title("📚 Leeds Harvard Referencing Tool")
-st.write("Generate accurate references following the University of Leeds Harvard style.")
+st.write("Generate accurate references and download your full bibliography.")
 
-# Create tabs for different reference types
-tab1, tab2, tab3 = st.tabs(["📖 Book", "📰 Journal Article", "🌐 Website"])
+# 2. Tabs (Kept exactly as yours, added one for Bibliography)
+tab1, tab2, tab3, tab_final = st.tabs(["📖 Book", "📰 Journal Article", "🌐 Website", "📋 My Bibliography"])
 
-# --- TAB 1: BOOK ---
+# --- TAB 1: BOOK (Updated with 'Add' logic) ---
 with tab1:
     st.header("Book Reference")
     with st.form("book_form"):
@@ -20,16 +26,15 @@ with tab1:
         edition = st.text_input("Edition (leave blank if 1st)", placeholder="e.g. 2nd")
         place = st.text_input("Place of Publication", placeholder="London")
         publisher = st.text_input("Publisher", placeholder="Pearson")
-        
-        submit_book = st.form_submit_button("Generate Book Reference")
+        submit_book = st.form_submit_button("Generate & Add to List")
 
     if submit_book:
         if authors and year and title:
             auth_list = [a.strip() for a in authors.split(",")]
             result = generate_book_reference(auth_list, year, title, publisher, place, edition)
-            st.success("Reference Generated:")
+            st.session_state.bibliography.append(result)
+            st.success("Reference added to your Bibliography tab!")
             st.markdown(f"> {result}")
-            st.code(result.replace("*", ""), language=None) # Plain text version for easy copy
         else:
             st.error("Please fill in at least Authors, Year, and Title.")
 
@@ -43,14 +48,14 @@ with tab2:
         jou_title = st.text_input("Journal Title")
         vol = st.text_input("Volume")
         iss = st.text_input("Issue/Part")
-        pgs = st.text_input("Page Numbers", placeholder="e.g. 10-25")
-        
-        submit_journal = st.form_submit_button("Generate Journal Reference")
+        pgs = st.text_input("Page Numbers")
+        submit_journal = st.form_submit_button("Generate & Add to List")
 
     if submit_journal:
         auth_list = [a.strip() for a in j_authors.split(",")]
         result = generate_journal_reference(auth_list, j_year, art_title, jou_title, vol, iss, pgs)
-        st.success("Reference Generated:")
+        st.session_state.bibliography.append(result)
+        st.success("Reference added to your Bibliography tab!")
         st.markdown(f"> {result}")
 
 # --- TAB 3: WEBSITE ---
@@ -61,12 +66,46 @@ with tab3:
         w_year = st.text_input("Year published or updated")
         w_title = st.text_input("Page Title")
         url = st.text_input("URL")
-        access = st.text_input("Date Accessed", placeholder="e.g. 15 May 2024")
-        
-        submit_web = st.form_submit_button("Generate Website Reference")
+        access = st.text_input("Date Accessed")
+        submit_web = st.form_submit_button("Generate & Add to List")
 
     if submit_web:
         auth_list = [a.strip() for a in w_authors.split(",")]
         result = generate_website_reference(auth_list, w_year, w_title, url, access)
-        st.success("Reference Generated:")
+        st.session_state.bibliography.append(result)
+        st.success("Reference added to your Bibliography tab!")
         st.markdown(f"> {result}")
+
+# --- TAB 4: NEW EXPORT FEATURE ---
+with tab_final:
+    st.header("Final Bibliography")
+    if not st.session_state.bibliography:
+        st.info("Your bibliography is empty. Generate references in the other tabs to see them here.")
+    else:
+        # Sort Alphabetically (A Leeds Requirement)
+        st.session_state.bibliography.sort()
+        
+        # Display the list
+        for ref in st.session_state.bibliography:
+            st.markdown(f"- {ref}")
+        
+        if st.button("Clear List"):
+            st.session_state.bibliography = []
+            st.rerun()
+
+        # Generate Word Doc
+        doc = Document()
+        doc.add_heading('Bibliography', 0)
+        for ref in st.session_state.bibliography:
+            doc.add_paragraph(ref.replace("*", "")) # Strip markdown stars for Word
+        
+        buffer = BytesIO()
+        doc.save(buffer)
+        buffer.seek(0)
+
+        st.download_button(
+            label="📥 Download as Word (.docx)",
+            data=buffer,
+            file_name="Bibliography.docx",
+            mime="application/vnd.openxmlformats-officedocument.wordprocessingml.document"
+        )
