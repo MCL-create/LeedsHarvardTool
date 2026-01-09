@@ -15,7 +15,6 @@ st.markdown(f"""
     div.stButton > button {{ background-color: #009688; color: white; border-radius: 5px; font-weight: bold; width: 100%; }}
     .mcl-explanation {{ background-color: #ffffff; padding: 20px; border-radius: 10px; border-left: 8px solid #f9a825; margin: 20px 0; }}
     .success-card {{ background-color: #d4edda; color: #155724; padding: 20px; border-radius: 10px; text-align: center; border: 2px solid #c3e6cb; }}
-    .audit-row {{ padding: 10px; border-bottom: 1px solid #eee; display: flex; justify-content: space-between; }}
     </style>
 """, unsafe_allow_html=True)
 
@@ -88,7 +87,6 @@ with tab4:
         for i, ref in enumerate(st.session_state.bibliography):
             st.markdown(f"{i+1}. {ref}")
         
-        # Download as Word Doc
         doc = Document()
         doc.add_heading('Bibliography', 0)
         for ref in st.session_state.bibliography:
@@ -102,46 +100,63 @@ with tab4:
             st.session_state.bibliography = []
             st.rerun()
 
-# --- TAB 5: ADVANCED AUDIT WITH LOCATIONS ---
+# --- TAB 5: ADVANCED AUDIT WITH DIAGNOSTICS ---
 with tab5:
     st.header("🔍 Essay Citation Audit")
     uploaded_file = st.file_uploader("Upload Essay (.docx)", type="docx", key="mcl_audit_loc")
     
-    if uploaded_file and st.button("Run Audit", key="run_audit_v3"):
-        doc = Document(uploaded_file)
-        bib_low = " ".join(st.session_state.bibliography).lower()
-        results = []
-        report_lines = ["MCL ADVANCED AUDIT REPORT", "="*30, ""]
-        
-        # Iterate through paragraphs to find locations
-        for i, para in enumerate(doc.paragraphs):
-            # Regex to find citations in (Name, Year) format
-            found_cites = re.findall(r'\(([^)]{5,100}?\d{4}[^)]{0,20}?)\)', para.text)
+    if uploaded_file:
+        if st.button("Run Audit", key="run_audit_v4"):
+            doc = Document(uploaded_file)
+            bib_low = " ".join(st.session_state.bibliography).lower()
+            results = []
+            report_lines = ["MCL ADVANCED AUDIT REPORT", "="*40, ""]
+            missing_count = 0
             
-            for c in found_cites:
-                surname = c.split(',')[0].split(' ')[0].lower()
-                matched = surname in bib_low
-                status = "✅ Matched" if matched else "⚠️ Missing"
+            for i, para in enumerate(doc.paragraphs):
+                # Look for (Name, Year) or (Name et al., Year)
+                found_cites = re.findall(r'\(([^)]{5,100}?\d{4}[^)]{0,20}?)\)', para.text)
                 
-                # Record result with Paragraph Location
-                results.append({
-                    "Location": f"Paragraph {i+1}",
-                    "Citation": f"({c})",
-                    "Status": status
-                })
-                
-                report_lines.append(f"[{status}] {f'({c})':<40} | Location: Paragraph {i+1}")
+                for c in found_cites:
+                    surname = c.split(',')[0].split(' ')[0].lower()
+                    matched = surname in bib_low
+                    status = "✅ Matched" if matched else "⚠️ Missing"
+                    
+                    if not matched: 
+                        missing_count += 1
+                        tip = "Check if the author surname is spelled exactly as in your Bibliography list."
+                    else:
+                        tip = "Reference verified."
 
-        if results:
-            st.table(results)
-            
-            # THE DOWNLOADABLE REPORT (Enhanced with locations)
-            full_report = "\n".join(report_lines)
-            st.download_button("📥 Download Detailed Report", full_report, "MCL_Detailed_Audit.txt")
-            
-            # --- SUCCESS CHECK ---
-            if all(r["Status"] == "✅ Matched" for r in results):
-                st.balloons()
-                st.success("Perfect! Every citation matches your bibliography.")
-        else:
-            st.info("No citations detected in this document.")
+                    results.append({
+                        "Location": f"Paragraph {i+1}",
+                        "Citation": f"({c})",
+                        "Status": status
+                    })
+                    
+                    report_lines.append(f"[{status}] Citation: ({c})")
+                    report_lines.append(f"     Location: Paragraph {i+1}")
+                    report_lines.append(f"     Feedback: {tip}")
+                    report_lines.append("-" * 30)
+
+            if results:
+                st.write(f"### Audit Summary: {len(results) - missing_count}/{len(results)} matches.")
+                st.table(results)
+                
+                full_report = "\n".join(report_lines)
+                st.download_button("📥 Download Detailed MCL Audit Report", full_report, "MCL_Diagnostic_Report.txt")
+                
+                if missing_count == 0:
+                    st.balloons()
+                    st.markdown("""<div class="success-card"><h2>🎉 Referencing Perfect!</h2><p>All citations found in your bibliography.</p></div>""", unsafe_allow_html=True)
+                else:
+                    st.markdown(f"""
+                        <div class="mcl-explanation">
+                        <h4>💡 Diagnostic Feedback for {missing_count} Items:</h4>
+                        <p>1. <b>Location Tracking:</b> Check the paragraph numbers above to find exactly where the error is.</p>
+                        <p>2. <b>Typo Check:</b> Ensure there isn't a space between the Name and Year in your input form vs your essay.</p>
+                        <p>3. <b>Et al. Usage:</b> Remember, if there are 3+ authors, use <i>et al.</i> in the text, but list all in the bibliography!</p>
+                        </div>
+                    """, unsafe_allow_html=True)
+            else:
+                st.info("No citations detected. Ensure they are in (Author, Year) format.")
