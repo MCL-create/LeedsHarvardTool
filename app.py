@@ -3,9 +3,21 @@ import re
 import os
 from io import BytesIO
 from docx import Document
+from docx.shared import Pt
 from leeds_harvard_tool import generate_book_reference, generate_journal_reference, generate_website_reference, get_sort_key
 
-# --- 1. MCL BRANDED THEME ---
+# --- 1. INITIALIZE SESSION STATE (Fixes the AttributeError) ---
+# This must be at the very top to prevent errors in other tabs
+if 'bibliography' not in st.session_state:
+    st.session_state.bibliography = []
+if 'audit_results' not in st.session_state:
+    st.session_state.audit_results = None
+if 'report_docx' not in st.session_state:
+    st.session_state.report_docx = None
+if 'missing_count' not in st.session_state:
+    st.session_state.missing_count = 0
+
+# --- 2. MCL BRANDED THEME ---
 st.set_page_config(page_title="MCL Leeds Harvard Tool", page_icon="📚", layout="centered")
 
 st.markdown(f"""
@@ -18,20 +30,18 @@ st.markdown(f"""
     </style>
 """, unsafe_allow_html=True)
 
-if 'bibliography' not in st.session_state:
-    st.session_state.bibliography = []
-
-# --- 2. HEADER ---
+# --- 3. HEADER (Fixes the TypeError) ---
 img_path = "assets/Header.png"
 if os.path.exists(img_path):
+    # Changed from use_container_width to use_column_width to match your Streamlit version
     st.image(img_path, use_column_width=True)
 
-# --- 3. TABS ---
+# --- 4. TABS ---
 tab1, tab2, tab3, tab4, tab5 = st.tabs([
     "📖 Book", "📰 Journal", "🌐 Website", "📋 Bibliography", "🔍 Essay Audit"
 ])
 
-# --- TAB 1: BOOK ---
+# --- TAB 1, 2, 3 (References) ---
 with tab1:
     st.header("Book Reference")
     with st.form("book_active", clear_on_submit=True):
@@ -45,7 +55,6 @@ with tab1:
                 st.session_state.bibliography.append(res)
                 st.success("Book Reference Saved!")
 
-# --- TAB 2: JOURNAL ---
 with tab2:
     st.header("Journal Article Reference")
     with st.form("journal_form", clear_on_submit=True):
@@ -62,7 +71,6 @@ with tab2:
                 st.session_state.bibliography.append(res)
                 st.success("Journal Reference Saved!")
 
-# --- TAB 3: WEBSITE ---
 with tab3:
     st.header("Website Reference")
     with st.form("web_form", clear_on_submit=True):
@@ -98,11 +106,10 @@ with tab4:
         
         if st.button("Clear All References", key="clear_bib"):
             st.session_state.bibliography = []
+            st.session_state.audit_results = None # Clear audit too
             st.rerun()
-from docx.shared import Pt
-from docx.enum.text import WD_ALIGN_PARAGRAPH
 
-# --- TAB 5: ADVANCED AUDIT WITH BRANDED WORD REPORT ---
+# --- TAB 5: ADVANCED AUDIT ---
 with tab5:
     st.header("🔍 Essay Citation Audit")
     uploaded_file = st.file_uploader("Upload Essay (.docx)", type="docx", key="mcl_audit_final")
@@ -114,7 +121,6 @@ with tab5:
             results = []
             missing_count = 0
             
-            # 1. Process Audit
             for i, para in enumerate(doc_input.paragraphs):
                 found_cites = re.findall(r'\(([^)]{5,100}?\d{4}[^)]{0,20}?)\)', para.text)
                 for c in found_cites:
@@ -124,55 +130,42 @@ with tab5:
                     status = "✅ Matched" if matched else "⚠️ Missing"
                     results.append({"Location": f"Paragraph {i+1}", "Citation": f"({c})", "Status": status})
 
-            # 2. Generate Branded Word Report
+            # Generate Branded Word Report
             report_doc = Document()
-            
-            # Add Header Image
             if os.path.exists("assets/Header.png"):
-                report_doc.add_picture("assets/Header.png", width=report_doc.sections[0].page_width - Pt(72))
+                report_doc.add_picture("assets/Header.png", width=Pt(450))
             
-            # Title & Font Styling
-            title = report_doc.add_heading('Essay Citation Audit Report', 0)
+            report_doc.add_heading('Essay Citation Audit Report', 0)
             
-            # Apply Aptos-style formatting to the whole document
             style = report_doc.styles['Normal']
-            font = style.font
-            font.name = 'Aptos' # New Microsoft Default
-            font.size = Pt(11)
+            style.font.name = 'Aptos'
+            style.font.size = Pt(11)
 
-            report_doc.add_paragraph(f"Summary: {len(results) - missing_count} matches found out of {len(results)} citations.\n")
+            report_doc.add_paragraph(f"Audit Summary: {len(results) - missing_count} matches found.")
 
-            # Add Results Table to Word
             table = report_doc.add_table(rows=1, cols=3)
             table.style = 'Table Grid'
             hdr_cells = table.rows[0].cells
-            hdr_cells[0].text = 'Location'
-            hdr_cells[1].text = 'Citation'
-            hdr_cells[2].text = 'Status'
+            hdr_cells[0].text, hdr_cells[1].text, hdr_cells[2].text = 'Location', 'Citation', 'Status'
 
             for item in results:
-                row_cells = table.add_row().cells
-                row_cells[0].text = item['Location']
-                row_cells[1].text = item['Citation']
-                row_cells[2].text = item['Status']
+                row = table.add_row().cells
+                row[0].text, row[1].text, row[2].text = item['Location'], item['Citation'], item['Status']
 
-            # Save to Memory for Streamlit Download
             buf = BytesIO()
             report_doc.save(buf)
             
+            # Save results to session state
             st.session_state.audit_results = results
             st.session_state.report_docx = buf.getvalue()
             st.session_state.missing_count = missing_count
 
-    # Display Results & Branded Download
-    if st.session_state.audit_results:
+    # Conditional Display (Prevents the AttributeError)
+    if st.session_state.audit_results is not None:
         st.table(st.session_state.audit_results)
-        
         st.download_button(
             label="📥 Download Branded Audit Report (.docx)",
             data=st.session_state.report_docx,
             file_name="MCL_Audit_Report.docx",
-            mime="application/vnd.openxmlformats-officedocument.wordprocessingml.document",
-            key="dl_branded_docx"
+            mime="application/vnd.openxmlformats-officedocument.wordprocessingml.document"
         )
-
