@@ -108,61 +108,83 @@ with tab4:
             st.session_state.bibliography = []
             st.session_state.audit_results = None # Clear audit too
             st.rerun()
-
-# --- TAB 5: ADVANCED AUDIT ---
+# --- TAB 5: ADVANCED AUDIT (STABLE UPLOAD VERSION) ---
 with tab5:
     st.header("🔍 Essay Citation Audit")
-    uploaded_file = st.file_uploader("Upload Essay (.docx)", type="docx", key="mcl_audit_final")
     
-    if uploaded_file:
-        if st.button("Run Audit", key="run_audit_branded"):
-            doc_input = Document(uploaded_file)
-            bib_low = " ".join(st.session_state.bibliography).lower()
-            results = []
-            missing_count = 0
-            
-            for i, para in enumerate(doc_input.paragraphs):
-                found_cites = re.findall(r'\(([^)]{5,100}?\d{4}[^)]{0,20}?)\)', para.text)
-                for c in found_cites:
-                    surname = c.split(',')[0].split(' ')[0].lower()
-                    matched = surname in bib_low
-                    if not matched: missing_count += 1
-                    status = "✅ Matched" if matched else "⚠️ Missing"
-                    results.append({"Location": f"Paragraph {i+1}", "Citation": f"({c})", "Status": status})
+    # Using a clear instruction and unique key for the uploader
+    uploaded_file = st.file_uploader(
+        "Upload Essay (.docx)", 
+        type="docx", 
+        key="mcl_audit_uploader_unique"
+    )
+    
+    if uploaded_file is not None:
+        # Provide visual feedback that the file is ready
+        st.success(f"File '{uploaded_file.name}' uploaded successfully!")
+        
+        if st.button("Run Audit & Generate Report", key="run_audit_btn"):
+            try:
+                # Re-read the file into the Document object
+                doc_input = Document(uploaded_file)
+                bib_low = " ".join(st.session_state.bibliography).lower()
+                results = []
+                missing_count = 0
+                
+                # Process Audit
+                for i, para in enumerate(doc_input.paragraphs):
+                    found_cites = re.findall(r'\(([^)]{5,100}?\d{4}[^)]{0,20}?)\)', para.text)
+                    for c in found_cites:
+                        # Extract first word of citation (usually author)
+                        surname = c.split(',')[0].split(' ')[0].lower()
+                        matched = surname in bib_low
+                        if not matched: missing_count += 1
+                        status = "✅ Matched" if matched else "⚠️ Missing"
+                        results.append({"Location": f"Paragraph {i+1}", "Citation": f"({c})", "Status": status})
 
-            # Generate Branded Word Report
-            report_doc = Document()
-            if os.path.exists("assets/Header.png"):
-                report_doc.add_picture("assets/Header.png", width=Pt(450))
-            
-            report_doc.add_heading('Essay Citation Audit Report', 0)
-            
-            style = report_doc.styles['Normal']
-            style.font.name = 'Aptos'
-            style.font.size = Pt(11)
+                if results:
+                    # Generate the Branded Word Report
+                    report_doc = Document()
+                    if os.path.exists("assets/Header.png"):
+                        report_doc.add_picture("assets/Header.png", width=Pt(450))
+                    
+                    report_doc.add_heading('Essay Citation Audit Report', 0)
+                    
+                    # Apply Font Style
+                    style = report_doc.styles['Normal']
+                    style.font.name = 'Aptos'
+                    style.font.size = Pt(11)
 
-            report_doc.add_paragraph(f"Audit Summary: {len(results) - missing_count} matches found.")
+                    report_doc.add_paragraph(f"Audit Summary: {len(results) - missing_count} matches found.")
 
-            table = report_doc.add_table(rows=1, cols=3)
-            table.style = 'Table Grid'
-            hdr_cells = table.rows[0].cells
-            hdr_cells[0].text, hdr_cells[1].text, hdr_cells[2].text = 'Location', 'Citation', 'Status'
+                    # Build Table
+                    table = report_doc.add_table(rows=1, cols=3)
+                    table.style = 'Table Grid'
+                    hdr_cells = table.rows[0].cells
+                    hdr_cells[0].text, hdr_cells[1].text, hdr_cells[2].text = 'Location', 'Citation', 'Status'
 
-            for item in results:
-                row = table.add_row().cells
-                row[0].text, row[1].text, row[2].text = item['Location'], item['Citation'], item['Status']
+                    for item in results:
+                        row = table.add_row().cells
+                        row[0].text, row[1].text, row[2].text = item['Location'], item['Citation'], item['Status']
 
-            buf = BytesIO()
-            report_doc.save(buf)
-            
-            # Save results to session state
-            st.session_state.audit_results = results
-            st.session_state.report_docx = buf.getvalue()
-            st.session_state.missing_count = missing_count
+                    buf = BytesIO()
+                    report_doc.save(buf)
+                    
+                    # Store results so they persist
+                    st.session_state.audit_results = results
+                    st.session_state.report_docx = buf.getvalue()
+                    st.session_state.missing_count = missing_count
+                else:
+                    st.warning("No citations detected in the format (Author, Year).")
 
-    # Conditional Display (Prevents the AttributeError)
+            except Exception as e:
+                st.error(f"Error processing document: {e}")
+
+    # Display Persistent Results
     if st.session_state.audit_results is not None:
+        st.subheader(f"Results: {len(st.session_state.audit_results)} Citations Detected")
         st.table(st.session_state.audit_results)
+        
         st.download_button(
             label="📥 Download Branded Audit Report (.docx)",
             data=st.session_state.report_docx,
