@@ -102,45 +102,46 @@ with tab4:
             st.session_state.bibliography = []
             st.rerun()
 
-# --- TAB 5: AUDIT ---
+# --- TAB 5: ADVANCED AUDIT WITH LOCATIONS ---
 with tab5:
     st.header("🔍 Essay Citation Audit")
-    uploaded_file = st.file_uploader("Upload Essay (.docx)", type="docx", key="mcl_final_audit")
+    uploaded_file = st.file_uploader("Upload Essay (.docx)", type="docx", key="mcl_audit_loc")
     
-    if uploaded_file:
-        if st.button("Run Audit", key="run_final_audit"):
-            doc = Document(uploaded_file)
-            text = " ".join([p.text for p in doc.paragraphs])
-            cites = re.findall(r'\(([^)]{5,100}?\d{4}[^)]{0,20}?)\)', text)
+    if uploaded_file and st.button("Run Audit", key="run_audit_v3"):
+        doc = Document(uploaded_file)
+        bib_low = " ".join(st.session_state.bibliography).lower()
+        results = []
+        report_lines = ["MCL ADVANCED AUDIT REPORT", "="*30, ""]
+        
+        # Iterate through paragraphs to find locations
+        for i, para in enumerate(doc.paragraphs):
+            # Regex to find citations in (Name, Year) format
+            found_cites = re.findall(r'\(([^)]{5,100}?\d{4}[^)]{0,20}?)\)', para.text)
             
-            if cites:
-                bib_low = " ".join(st.session_state.bibliography).lower()
-                results = []
-                missing_count = 0
+            for c in found_cites:
+                surname = c.split(',')[0].split(' ')[0].lower()
+                matched = surname in bib_low
+                status = "✅ Matched" if matched else "⚠️ Missing"
                 
-                for c in sorted(list(set(cites))):
-                    name = c.split(',')[0].split(' ')[0].lower()
-                    found = name in bib_low
-                    if not found: missing_count += 1
-                    results.append({"Citation": f"({c})", "Status": "✅ Matched" if found else "⚠️ Missing"})
+                # Record result with Paragraph Location
+                results.append({
+                    "Location": f"Paragraph {i+1}",
+                    "Citation": f"({c})",
+                    "Status": status
+                })
                 
-                st.table(results)
+                report_lines.append(f"[{status}] {f'({c})':<40} | Location: Paragraph {i+1}")
 
-                if missing_count == 0:
-                    st.balloons()
-                    st.markdown("""<div class="success-card"><h2>🎉 Perfect Match!</h2><p>All in-text citations were found in your bibliography.</p></div>""", unsafe_allow_html=True)
-                else:
-                    st.markdown(f"""
-                        <div class="mcl-explanation">
-                        <h4>💡 Fixing {missing_count} Missing Items</h4>
-                        <ul>
-                            <li><b>Spelling:</b> Does the surname in the essay match the bibliography exactly?</li>
-                            <li><b>Unsaved Data:</b> Did you click 'Add Reference' in the Book/Journal/Website tabs?</li>
-                            <li><b>Page Numbers:</b> Ensure page numbers don't interfere with the author name (e.g. Smith, 2024, p.10).</li>
-                        </ul>
-                        </div>
-                    """, unsafe_allow_html=True)
-
-                report = "MCL AUDIT REPORT\n" + "="*20 + "\n"
-                for r in results: report += f"[{r['Status']}] {r['Citation']}\n"
-                st.download_button("📥 Download Report", report, "MCL_Audit.txt", key="dl_final")
+        if results:
+            st.table(results)
+            
+            # THE DOWNLOADABLE REPORT (Enhanced with locations)
+            full_report = "\n".join(report_lines)
+            st.download_button("📥 Download Detailed Report", full_report, "MCL_Detailed_Audit.txt")
+            
+            # --- SUCCESS CHECK ---
+            if all(r["Status"] == "✅ Matched" for r in results):
+                st.balloons()
+                st.success("Perfect! Every citation matches your bibliography.")
+        else:
+            st.info("No citations detected in this document.")
