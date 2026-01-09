@@ -99,64 +99,80 @@ with tab4:
         if st.button("Clear All References", key="clear_bib"):
             st.session_state.bibliography = []
             st.rerun()
+from docx.shared import Pt
+from docx.enum.text import WD_ALIGN_PARAGRAPH
 
-# --- TAB 5: ADVANCED AUDIT WITH DIAGNOSTICS ---
+# --- TAB 5: ADVANCED AUDIT WITH BRANDED WORD REPORT ---
 with tab5:
     st.header("🔍 Essay Citation Audit")
-    uploaded_file = st.file_uploader("Upload Essay (.docx)", type="docx", key="mcl_audit_loc")
+    uploaded_file = st.file_uploader("Upload Essay (.docx)", type="docx", key="mcl_audit_final")
     
     if uploaded_file:
-        if st.button("Run Audit", key="run_audit_v4"):
-            doc = Document(uploaded_file)
+        if st.button("Run Audit", key="run_audit_branded"):
+            doc_input = Document(uploaded_file)
             bib_low = " ".join(st.session_state.bibliography).lower()
             results = []
-            report_lines = ["MCL ADVANCED AUDIT REPORT", "="*40, ""]
             missing_count = 0
             
-            for i, para in enumerate(doc.paragraphs):
-                # Look for (Name, Year) or (Name et al., Year)
+            # 1. Process Audit
+            for i, para in enumerate(doc_input.paragraphs):
                 found_cites = re.findall(r'\(([^)]{5,100}?\d{4}[^)]{0,20}?)\)', para.text)
-                
                 for c in found_cites:
                     surname = c.split(',')[0].split(' ')[0].lower()
                     matched = surname in bib_low
+                    if not matched: missing_count += 1
                     status = "✅ Matched" if matched else "⚠️ Missing"
-                    
-                    if not matched: 
-                        missing_count += 1
-                        tip = "Check if the author surname is spelled exactly as in your Bibliography list."
-                    else:
-                        tip = "Reference verified."
+                    results.append({"Location": f"Paragraph {i+1}", "Citation": f"({c})", "Status": status})
 
-                    results.append({
-                        "Location": f"Paragraph {i+1}",
-                        "Citation": f"({c})",
-                        "Status": status
-                    })
-                    
-                    report_lines.append(f"[{status}] Citation: ({c})")
-                    report_lines.append(f"     Location: Paragraph {i+1}")
-                    report_lines.append(f"     Feedback: {tip}")
-                    report_lines.append("-" * 30)
+            # 2. Generate Branded Word Report
+            report_doc = Document()
+            
+            # Add Header Image
+            if os.path.exists("assets/Header.png"):
+                report_doc.add_picture("assets/Header.png", width=report_doc.sections[0].page_width - Pt(72))
+            
+            # Title & Font Styling
+            title = report_doc.add_heading('Essay Citation Audit Report', 0)
+            
+            # Apply Aptos-style formatting to the whole document
+            style = report_doc.styles['Normal']
+            font = style.font
+            font.name = 'Aptos' # New Microsoft Default
+            font.size = Pt(11)
 
-            if results:
-                st.write(f"### Audit Summary: {len(results) - missing_count}/{len(results)} matches.")
-                st.table(results)
-                
-                full_report = "\n".join(report_lines)
-                st.download_button("📥 Download Detailed MCL Audit Report", full_report, "MCL_Diagnostic_Report.txt")
-                
-                if missing_count == 0:
-                    st.balloons()
-                    st.markdown("""<div class="success-card"><h2>🎉 Referencing Perfect!</h2><p>All citations found in your bibliography.</p></div>""", unsafe_allow_html=True)
-                else:
-                    st.markdown(f"""
-                        <div class="mcl-explanation">
-                        <h4>💡 Diagnostic Feedback for {missing_count} Items:</h4>
-                        <p>1. <b>Location Tracking:</b> Check the paragraph numbers above to find exactly where the error is.</p>
-                        <p>2. <b>Typo Check:</b> Ensure there isn't a space between the Name and Year in your input form vs your essay.</p>
-                        <p>3. <b>Et al. Usage:</b> Remember, if there are 3+ authors, use <i>et al.</i> in the text, but list all in the bibliography!</p>
-                        </div>
-                    """, unsafe_allow_html=True)
-            else:
-                st.info("No citations detected. Ensure they are in (Author, Year) format.")
+            report_doc.add_paragraph(f"Summary: {len(results) - missing_count} matches found out of {len(results)} citations.\n")
+
+            # Add Results Table to Word
+            table = report_doc.add_table(rows=1, cols=3)
+            table.style = 'Table Grid'
+            hdr_cells = table.rows[0].cells
+            hdr_cells[0].text = 'Location'
+            hdr_cells[1].text = 'Citation'
+            hdr_cells[2].text = 'Status'
+
+            for item in results:
+                row_cells = table.add_row().cells
+                row_cells[0].text = item['Location']
+                row_cells[1].text = item['Citation']
+                row_cells[2].text = item['Status']
+
+            # Save to Memory for Streamlit Download
+            buf = BytesIO()
+            report_doc.save(buf)
+            
+            st.session_state.audit_results = results
+            st.session_state.report_docx = buf.getvalue()
+            st.session_state.missing_count = missing_count
+
+    # Display Results & Branded Download
+    if st.session_state.audit_results:
+        st.table(st.session_state.audit_results)
+        
+        st.download_button(
+            label="📥 Download Branded Audit Report (.docx)",
+            data=st.session_state.report_docx,
+            file_name="MCL_Audit_Report.docx",
+            mime="application/vnd.openxmlformats-officedocument.wordprocessingml.document",
+            key="dl_branded_docx"
+        )
+
