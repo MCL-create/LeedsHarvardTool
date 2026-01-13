@@ -118,5 +118,46 @@ with tabs[4]:
 # --- TAB 6: GUIDE ---
 with tabs[5]:
     st.header("Leeds Harvard Guide")
+    st.write("**What is the Leeds Harvard Method? 
+
+The Leeds Harvard referencing style is a widely used academic system for acknowledging sources. It is based on the author–date principle: 
+
+In-text citations: A brief reference appears within the text (author’s surname, year, and page number if quoting). 
+
+Reference list: A full citation is provided at the end of the work, giving all the details needed to locate the source. 
+
+This method is used to: 
+
+Avoid plagiarism. 
+
+Show evidence of reading and research. 
+
+Help the reader track down sources. 
+
+The University of Leeds has its own version of Harvard, which is slightly stricter than some other institutions (for example, in how spacing, punctuation, and access dates are presented). 
+
+Key Features 
+
+In-text citation 
+
+Format: (Author, Year) or (Author, Year, p. X) if page numbers are needed. 
+
+Example (paraphrase): 
+
+Social workers require strong advocacy skills to empower service users (Bateman, 2000). 
+
+Example (direct quote): 
+
+“The casework relationship is central to effective practice” (Biestek, 1961, p. 45). 
+
+Reference list 
+
+Placed at the end of your work. 
+
+Listed alphabetically by author’s surname. 
+
+Each reference must include consistent information: author(s), year, title (in italics), edition if not the first, place of publication, and publisher. 
+
+Online sources must include a full URL and Accessed date. 
     st.write("**In-text:** (Author, Year). **Quote:** (Author, Year, p. X).")
     st.write("**Bibliography:** Author (Year) Title. Place: Publisher.")
