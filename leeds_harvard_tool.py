@@ -3,6 +3,7 @@ import re
 from bs4 import BeautifulSoup
 
 def search_books(query):
+    """Fetches book data from Google Books API."""
     url = f"https://www.googleapis.com/books/v1/volumes?q={query}&maxResults=3"
     try:
         response = requests.get(url, timeout=5)
@@ -22,6 +23,7 @@ def search_books(query):
         return []
 
 def search_journals(query):
+    """Fetches journal data from CrossRef API."""
     url = f"https://api.crossref.org/works?query={query}&rows=3"
     try:
         response = requests.get(url, timeout=5)
@@ -46,11 +48,13 @@ def search_journals(query):
         return []
 
 def scrape_website_metadata(url):
+    """Fetches Page Title and Year from a URL for the 'Magic Fill'."""
     try:
         headers = {'User-Agent': 'Mozilla/5.0'}
         response = requests.get(url, headers=headers, timeout=5)
         soup = BeautifulSoup(response.text, 'html.parser')
         title = soup.title.string if soup.title else "Unknown Title"
+        # Look for the most recent year in the text
         year_match = re.search(r'20\d{2}', response.text)
         year = year_match.group(0) if year_match else "no date"
         return {"title": title.strip(), "year": year}
