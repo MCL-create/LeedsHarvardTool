@@ -3,13 +3,14 @@ import re
 from bs4 import BeautifulSoup
 
 # --- MCL MASTER CORRECTION MAP (The Gold Standard) ---
-# This ensures that "Bee", "SSSC", etc., always output the FULL correct version.
+# This ensures that these specific topics always output the FULL correct Leeds Harvard version.
 GOLD_STANDARD = {
     "bee": "Bee, H. and Boyd, D. (2002) Life Span Development. 3rd ed. London: Allyn and Bacon.",
     "sssc": "Scottish Social Services Council (2024) SSSC Codes of Practice for Social Service Workers and Employers. [Online]. [Accessed 13 Jan 2026]. Available from: https://www.sssc.uk.com",
     "care review": "Independent Care Review (2021) The Independent Care Review: The Promise. Glasgow: Independent Care Review.",
     "standards": "Scottish Government (2018) Health and Social Care Standards: my support, my life. Edinburgh: Scottish Government.",
     "thompson": "Thompson, N. (2005) Understanding Social Work: Preparing for Practice. 2nd ed. Basingstoke: Palgrave Macmillan.",
+    "equality": "Great Britain (2010) Equality Act 2010. London: The Stationery Office.",
     "data protection": "Great Britain (2018) Data Protection Act 2018. London: The Stationery Office.",
     "health and safety": "Great Britain (1974) Health and Safety at Work etc. Act 1974. London: HMSO."
 }
