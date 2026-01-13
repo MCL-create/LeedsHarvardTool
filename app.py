@@ -17,13 +17,14 @@ st.markdown("""
     .stApp { background-color: #e6f7f8; color: #37474f; }
     .stTabs [aria-selected="true"] { background-color: #009688 !important; color: white !important; }
     div.stButton > button { background-color: #009688; color: white; border-radius: 5px; font-weight: bold; width: 100%; }
-    .stInfo { background-color: #ffffff; border-left: 5px solid #009688; }
+    .stInfo { background-color: #ffffff; border-left: 5px solid #009688; padding: 10px; border-radius: 5px; }
     </style>
 """, unsafe_allow_html=True)
 
 # --- 3. BRANDED HEADER ---
-if os.path.exists("assets/Header.png"):
-    st.image("assets/Header.png", use_column_width=True)
+header_path = "assets/Header.png"
+if os.path.exists(header_path):
+    st.image(header_path, use_column_width=True)
 
 tab1, tab2, tab3, tab4, tab5 = st.tabs(["📖 Book", "📰 Journal", "🌐 Website", "📋 Bibliography", "🔍 Smart Audit"])
 
@@ -49,19 +50,33 @@ with tab1:
             st.session_state.bibliography.append(lht.generate_book_reference(auth, yr, tit, pub))
             st.success("Reference added.")
 
-# (Tabs 2 & 3 would follow the same pattern for Journals and Websites)
-
-# --- TAB 4: BIBLIOGRAPHY ---
+# --- TAB 4: BIBLIOGRAPHY (WITH EXPORT) ---
 with tab4:
     st.header("Manage Bibliography")
     if st.session_state.bibliography:
-        if st.button("🪄 Fix My Bibliography (One-Click Correction)"):
-            st.session_state.bibliography = lht.apply_one_click_corrections(st.session_state.bibliography)
-            st.success("Bibliography entries have been matched to the MCL Gold Standard.")
-            st.rerun()
+        col_fix, col_dl = st.columns(2)
+        with col_fix:
+            if st.button("🪄 Fix My Bibliography (One-Click Correction)"):
+                st.session_state.bibliography = lht.apply_one_click_corrections(st.session_state.bibliography)
+                st.success("Entries matched to MCL Gold Standard corrected!")
+                st.rerun()
+        
+        with col_dl:
+            # Word Doc Generation
+            doc = Document()
+            if os.path.exists(header_path): doc.add_picture(header_path, width=Pt(400))
+            doc.add_heading('Bibliography', 0)
+            st.session_state.bibliography.sort(key=lht.get_sort_key)
+            for ref in st.session_state.bibliography:
+                p = doc.add_paragraph(ref)
+                p.style.font.name = 'Aptos'
+                p.style.font.size = Pt(11)
+            
+            buffer = BytesIO()
+            doc.save(buffer)
+            st.download_button("📥 Download Bibliography (.docx)", buffer.getvalue(), "MCL_Bibliography.docx")
 
     st.divider()
-    st.session_state.bibliography.sort(key=lht.get_sort_key)
     for ref in st.session_state.bibliography:
         st.info(ref)
     
@@ -77,16 +92,14 @@ with tab5:
             doc = Document(uploaded)
             clean_bib = [lht.clean_text(b) for b in st.session_state.bibliography]
             results = []
-            for i, p in enumerate(doc.paragraphs):
-                cites = re.findall(r'\(([^)]{2,100}?\d{4}[^)]{0,50}?)\)', p.text)
+            for i, para in enumerate(doc.paragraphs):
+                cites = re.findall(r'\(([^)]{2,100}?\d{4}[^)]{0,50}?)\)', para.text)
                 for c in cites:
                     clean_cite = lht.clean_text(c)
                     matched = any(cb in clean_cite or clean_cite in cb for cb in clean_bib if cb)
                     feedback = "Correct." if matched else "Not found in Bibliography."
-                    
-                    if '"' in p.text and not any(x in c.lower() for x in ["p.", "page"]):
+                    if '"' in para.text and not any(x in c.lower() for x in ["p.", "page"]):
                         feedback = "Direct Quote: Needs page number (p. X)."
                         matched = False
-                    
                     results.append({"Para": i+1, "Citation": f"({c})", "Status": "✅" if matched else "⚠️", "Feedback": feedback})
             st.table(results)
