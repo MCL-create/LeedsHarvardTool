@@ -3,7 +3,7 @@ import re
 from bs4 import BeautifulSoup
 
 def search_books(query):
-    """Google Books API search for auto-filling book data."""
+    """Fetches book metadata from Google Books API."""
     url = f"https://www.googleapis.com/books/v1/volumes?q={query}&maxResults=3"
     try:
         response = requests.get(url, timeout=5)
@@ -22,7 +22,7 @@ def search_books(query):
     except: return []
 
 def search_journals(query):
-    """CrossRef API search for auto-filling journal data."""
+    """Fetches journal metadata from CrossRef API."""
     url = f"https://api.crossref.org/works?query={query}&rows=3"
     try:
         response = requests.get(url, timeout=5)
@@ -34,7 +34,7 @@ def search_journals(query):
             author_list = [f"{a.get('family', '')}, {a.get('given', '')[0]}." for a in item.get('author', []) if 'family' in a]
             results.append({
                 'label': f"{title} ({year})",
-                'authors': ", ".join(author_list) if author_list else "Unknown",
+                'authors': ", ".join(author_list) if author_list else "Unknown Author",
                 'year': year,
                 'title': title,
                 'journal': item.get('container-title', ['N/A'])[0],
@@ -46,18 +46,18 @@ def search_journals(query):
     except: return []
 
 def scrape_website_metadata(url):
-    """Scrapes a URL to find the Page Title and Year (GIRFEC/SSSC compatible)."""
+    """Magic Fill for websites: pulls Title and Year from URL."""
     try:
         headers = {'User-Agent': 'Mozilla/5.0'}
         response = requests.get(url, headers=headers, timeout=5)
         soup = BeautifulSoup(response.text, 'html.parser')
-        title = soup.title.string if soup.title else "Unknown Title"
+        title = soup.title.string if soup.title else "Unknown Page Title"
         year_match = re.search(r'20\d{2}', response.text)
         year = year_match.group(0) if year_match else "no date"
         return {"title": title.strip(), "year": year}
     except: return {"title": "", "year": ""}
 
-# --- FORMALLY FORMATTED LEEDS HARVARD STRINGS ---
+# --- LEEDS HARVARD FORMATTING STRINGS ---
 
 def generate_book_reference(authors, year, title, publisher, edition=""):
     """Format: Author (Year) Title. Edition. Publisher."""
