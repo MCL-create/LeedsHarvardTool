@@ -24,7 +24,6 @@ st.markdown(f"""
 """, unsafe_allow_html=True)
 
 # --- 3. BRANDED HEADER ---
-# This looks for your edited Header file in the assets folder
 header_path = "assets/Header.png"
 if os.path.exists(header_path):
     st.image(header_path, use_column_width=True)
@@ -43,16 +42,14 @@ with tab1:
                 choice = st.selectbox("Select match:", [m['label'] for m in matches])
                 if st.button("Use Book Data"):
                     selected = next(m for m in matches if m['label'] == choice)
-                    st.session_state.k_b_auth = selected['authors']
-                    st.session_state.k_b_yr = selected['year']
-                    st.session_state.k_b_tit = selected['title']
-                    st.session_state.k_b_pub = selected['publisher']
+                    st.session_state.k_b_auth = selected['authors']; st.session_state.k_b_yr = selected['year']
+                    st.session_state.k_b_tit = selected['title']; st.session_state.k_b_pub = selected['publisher']
     
     with st.form("book_form", clear_on_submit=True):
         auth = st.text_input("Authors", key="k_b_auth", value=st.session_state.get('k_b_auth', ''))
         yr = st.text_input("Year", key="k_b_yr", value=st.session_state.get('k_b_yr', ''))
         tit = st.text_input("Title", key="k_b_tit", value=st.session_state.get('k_b_tit', ''))
-        ed = st.text_input("Edition (e.g. 2nd)")
+        ed = st.text_input("Edition (e.g. 3rd)")
         pub = st.text_input("Publisher", key="k_b_pub", value=st.session_state.get('k_b_pub', ''))
         if st.form_submit_button("Add to Bibliography"):
             st.session_state.bibliography.append(lht.generate_book_reference(auth, yr, tit, pub, ed))
@@ -86,7 +83,7 @@ with tab2:
 with tab3:
     st.header("Website Reference")
     with st.expander("✨ Magic Fill: Auto-Fill from URL"):
-        w_url_input = st.text_input("Paste URL (e.g. SSSC or Scottish Government)")
+        w_url_input = st.text_input("Paste URL")
         if st.button("Fetch Metadata"):
             w_data = lht.scrape_website_metadata(w_url_input)
             st.session_state.k_w_tit = w_data['title']; st.session_state.k_w_yr = w_data['year']
@@ -102,10 +99,23 @@ with tab3:
             st.session_state.bibliography.append(lht.generate_website_reference(w_auth, w_yr, w_tit, w_url, w_acc))
             st.success("Reference Added!")
 
-# --- TAB 4: BIBLIOGRAPHY ---
+# --- TAB 4: BIBLIOGRAPHY (WITH SCOTTISH PRESETS) ---
 with tab4:
     st.header("Your Bibliography")
-    # Always sort alphabetically for the final list
+    with st.expander("📌 Quick Add: Scottish Social Care Presets"):
+        col1, col2 = st.columns(2)
+        with col1:
+            if st.button("Add Bee & Boyd (2002)"):
+                st.session_state.bibliography.append(lht.generate_book_reference("Bee, H. and Boyd, D.", "2002", "Life Span Development", "Allyn and Bacon", "3rd"))
+                st.rerun()
+            if st.button("Add SSSC Codes of Practice"):
+                st.session_state.bibliography.append(lht.generate_website_reference("Scottish Social Services Council", "2024", "SSSC Codes of Practice", "https://www.sssc.uk.com/standards/codes-of-practice/", "13 Jan 2026"))
+                st.rerun()
+        with col2:
+            if st.button("Add Health & Social Care Standards"):
+                st.session_state.bibliography.append(lht.generate_website_reference("Scottish Government", "2018", "Health and Social Care Standards: my support, my life", "https://www.gov.scot/publications/health-social-care-standards-support-life/", "13 Jan 2026"))
+                st.rerun()
+
     st.session_state.bibliography.sort(key=lht.get_sort_key)
     for ref in st.session_state.bibliography:
         st.write(ref)
@@ -113,12 +123,12 @@ with tab4:
         st.session_state.bibliography = []
         st.rerun()
 
-# --- TAB 5: AUDIT (BRANDED + FEEDBACK) ---
+# --- TAB 5: AUDIT ---
 with tab5:
     st.header("🔍 Essay Audit")
-    uploaded = st.file_uploader("Upload .docx Essay", type="docx")
+    uploaded = st.file_uploader("Upload .docx", type="docx")
     if uploaded:
-        if st.button("Run Full MCL Audit"):
+        if st.button("Run MCL Audit"):
             doc = Document(uploaded)
             bib_low = " ".join(st.session_state.bibliography).lower()
             results = []
@@ -128,15 +138,12 @@ with tab5:
                     name_part = c.split(',')[0].split(' ')[0].lower()
                     matched = name_part in bib_low
                     feedback = "Correct." if matched else "Check bibliography."
-                    # Special Recognition for Scottish Health & Social Care
-                    if any(x in c.lower() for x in ["sssc", "scottish", "standards", "practice"]):
-                        feedback += " (Verified Legislative Source)."
                     if '"' in p.text and "p." not in c.lower():
-                        feedback = "Direct quote: Leeds Harvard requires a page number (p.X)."
+                        feedback = "Direct quote: Needs page number (p.X)."
                     results.append({"Para": i+1, "Citation": f"({c})", "Status": "✅" if matched else "⚠️", "Feedback": feedback})
             st.session_state.audit_results = results
             
-            # Word Report Generation (Header + Aptos size 11)
+            # Word Report Generation (Aptos size 11)
             rep = Document()
             if os.path.exists(header_path): rep.add_picture(header_path, width=Pt(450))
             rep.add_heading("MCL Citation Audit Report", 0)
@@ -150,4 +157,4 @@ with tab5:
 
     if st.session_state.audit_results:
         st.table(st.session_state.audit_results)
-        st.download_button("📥 Download Branded Report", st.session_state.report_docx, "MCL_Audit_Report.docx")
+        st.download_button("📥 Download Report", st.session_state.report_docx, "MCL_Audit.docx")
