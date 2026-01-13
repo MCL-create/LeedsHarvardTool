@@ -68,3 +68,4 @@ def generate_website_reference(authors, year, title, url, access_date):
 
 def get_sort_key(ref):
     return ref.lower()
+
