@@ -2,9 +2,43 @@ import requests
 import re
 from bs4 import BeautifulSoup
 
+# --- MCL MASTER CORRECTION MAP (The Gold Standard) ---
+# Add any specific Scottish Legislation or common books here
+GOLD_STANDARD = {
+    "bee": "Bee, H. and Boyd, D. (2002) Life Span Development. 3rd ed. London: Allyn and Bacon.",
+    "sssc": "Scottish Social Services Council (2024) SSSC Codes of Practice for Social Service Workers and Employers. [Online]. [Accessed 13 Jan 2026]. Available from: https://www.sssc.uk.com",
+    "care review": "Independent Care Review (2021) The Independent Care Review: The Promise. Glasgow: Independent Care Review.",
+    "standards": "Scottish Government (2018) Health and Social Care Standards: my support, my life. Edinburgh: Scottish Government.",
+    "thompson": "Thompson, N. (2005) Understanding Social Work: Preparing for Practice. 2nd ed. Basingstoke: Palgrave Macmillan.",
+    "data protection": "Great Britain (2018) Data Protection Act 2018. London: The Stationery Office.",
+    "health and safety": "Great Britain (1974) Health and Safety at Work etc. Act 1974. London: HMSO."
+}
+
+def clean_text(text):
+    """Standardizes text for fuzzy matching."""
+    if not text: return ""
+    # Simplify by taking first part of title and removing symbols
+    text = re.split(r'[:|–|-]', text)[0]
+    return re.sub(r'[^\w\s]', '', text).lower().strip()
+
+def apply_one_click_corrections(current_bib):
+    """Replaces messy entries with the full correct version."""
+    corrected_bib = []
+    for entry in current_bib:
+        cleaned_entry = clean_text(entry)
+        match_found = False
+        for key, gold_ref in GOLD_STANDARD.items():
+            if key in cleaned_entry:
+                corrected_bib.append(gold_ref)
+                match_found = True
+                break
+        if not match_found:
+            corrected_bib.append(entry)
+    return list(set(corrected_bib))
+
 def search_books(query):
-    """Google Books API search - cleaned to ignore edition/city for better matching."""
-    clean_query = query.lower().replace("3rd ed", "").replace("london", "").replace("allyn and bacon", "").strip()
+    """Google Books API search with query cleaning."""
+    clean_query = query.lower().replace("3rd ed", "").replace("london", "").strip()
     url = f"https://www.googleapis.com/books/v1/volumes?q={clean_query}&maxResults=3"
     try:
         response = requests.get(url, timeout=5)
@@ -22,53 +56,15 @@ def search_books(query):
         return results
     except: return []
 
-def search_journals(query):
-    """CrossRef API search for journal articles."""
-    url = f"https://api.crossref.org/works?query={query}&rows=3"
-    try:
-        response = requests.get(url, timeout=5)
-        data = response.json()
-        results = []
-        for item in data.get('message', {}).get('items', []):
-            title = item.get('title', ['N/A'])[0]
-            year = str(item.get('created', {}).get('date-parts', [[0]])[0][0])
-            author_list = [f"{a.get('family', '')}, {a.get('given', '')[0]}." for a in item.get('author', []) if 'family' in a]
-            results.append({
-                'label': f"{title} ({year})",
-                'authors': ", ".join(author_list) if author_list else "Unknown Author",
-                'year': year,
-                'title': title,
-                'journal': item.get('container-title', ['N/A'])[0],
-                'vol': item.get('volume', ''),
-                'iss': item.get('issue', ''),
-                'pgs': item.get('page', '')
-            })
-        return results
-    except: return []
-
-def scrape_website_metadata(url):
-    """Magic Fill for URLs: Extracts Title and Year."""
-    try:
-        headers = {'User-Agent': 'Mozilla/5.0'}
-        response = requests.get(url, headers=headers, timeout=5)
-        soup = BeautifulSoup(response.text, 'html.parser')
-        title = soup.title.string if soup.title else "Unknown Page Title"
-        year_match = re.search(r'20\d{2}', response.text)
-        year = year_match.group(0) if year_match else "no date"
-        return {"title": title.strip(), "year": year}
-    except: return {"title": "", "year": ""}
-
+# --- LEEDS HARVARD FORMATTING ---
 def generate_book_reference(authors, year, title, publisher, edition=""):
     ref = f"{authors} ({year}) {title}."
     if edition: ref += f" {edition} edn."
     ref += f" {publisher}."
     return ref
 
-def generate_journal_reference(authors, year, art_title, j_title, vol, iss, pgs):
-    return f"{authors} ({year}) '{art_title}', {j_title}, {vol}({iss}), pp. {pgs}."
-
 def generate_website_reference(authors, year, title, url, access_date):
-    return f"{authors} ({year}) {title}. Available from: {url} [Accessed {access_date}]."
+    return f"{authors} ({year}) {title}. [Online]. [Accessed {access_date}]. Available from: {url}"
 
 def get_sort_key(ref):
     return ref.lower()
