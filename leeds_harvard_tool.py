@@ -3,7 +3,7 @@ import re
 from bs4 import BeautifulSoup
 
 # --- MCL MASTER CORRECTION MAP (The Gold Standard) ---
-# Add any specific Scottish Legislation or common books here
+# This ensures that "Bee", "SSSC", etc., always output the FULL correct version.
 GOLD_STANDARD = {
     "bee": "Bee, H. and Boyd, D. (2002) Life Span Development. 3rd ed. London: Allyn and Bacon.",
     "sssc": "Scottish Social Services Council (2024) SSSC Codes of Practice for Social Service Workers and Employers. [Online]. [Accessed 13 Jan 2026]. Available from: https://www.sssc.uk.com",
@@ -15,14 +15,13 @@ GOLD_STANDARD = {
 }
 
 def clean_text(text):
-    """Standardizes text for fuzzy matching."""
+    """Standardizes text for matching by removing formatting and clutter."""
     if not text: return ""
-    # Simplify by taking first part of title and removing symbols
     text = re.split(r'[:|–|-]', text)[0]
     return re.sub(r'[^\w\s]', '', text).lower().strip()
 
 def apply_one_click_corrections(current_bib):
-    """Replaces messy entries with the full correct version."""
+    """Replaces any bibliography entry with its Gold Standard version if a match exists."""
     corrected_bib = []
     for entry in current_bib:
         cleaned_entry = clean_text(entry)
@@ -48,7 +47,7 @@ def search_books(query):
             info = item.get('volumeInfo', {})
             results.append({
                 'label': f"{info.get('title')} ({info.get('publishedDate', 'N/A')[:4]})",
-                'authors': ", ".join(info.get('authors', ["Unknown Author"])),
+                'authors': ", ".join(info.get('authors', ["Unknown"])),
                 'year': info.get('publishedDate', 'N/A')[:4],
                 'title': info.get('title', 'N/A'),
                 'publisher': info.get('publisher', 'N/A')
@@ -56,7 +55,6 @@ def search_books(query):
         return results
     except: return []
 
-# --- LEEDS HARVARD FORMATTING ---
 def generate_book_reference(authors, year, title, publisher, edition=""):
     ref = f"{authors} ({year}) {title}."
     if edition: ref += f" {edition} edn."
