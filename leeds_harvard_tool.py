@@ -3,8 +3,9 @@ import re
 from bs4 import BeautifulSoup
 
 def search_books(query):
-    """Fetches book metadata from Google Books API."""
-    url = f"https://www.googleapis.com/books/v1/volumes?q={query}&maxResults=3"
+    # Clean query to improve API matching
+    clean_query = query.replace("3rd Ed", "").replace("London", "").strip()
+    url = f"https://www.googleapis.com/books/v1/volumes?q={clean_query}&maxResults=3"
     try:
         response = requests.get(url, timeout=5)
         data = response.json()
@@ -22,7 +23,6 @@ def search_books(query):
     except: return []
 
 def search_journals(query):
-    """Fetches journal metadata from CrossRef API."""
     url = f"https://api.crossref.org/works?query={query}&rows=3"
     try:
         response = requests.get(url, timeout=5)
@@ -46,7 +46,6 @@ def search_journals(query):
     except: return []
 
 def scrape_website_metadata(url):
-    """Magic Fill for websites: pulls Title and Year from URL."""
     try:
         headers = {'User-Agent': 'Mozilla/5.0'}
         response = requests.get(url, headers=headers, timeout=5)
@@ -57,21 +56,16 @@ def scrape_website_metadata(url):
         return {"title": title.strip(), "year": year}
     except: return {"title": "", "year": ""}
 
-# --- LEEDS HARVARD FORMATTING STRINGS ---
-
 def generate_book_reference(authors, year, title, publisher, edition=""):
-    """Format: Author (Year) Title. Edition. Publisher."""
     ref = f"{authors} ({year}) {title}."
     if edition: ref += f" {edition} edn."
     ref += f" {publisher}."
     return ref
 
 def generate_journal_reference(authors, year, art_title, j_title, vol, iss, pgs):
-    """Format: Author (Year) 'Article Title', Journal Title, Vol(Iss), pp. pages."""
     return f"{authors} ({year}) '{art_title}', {j_title}, {vol}({iss}), pp. {pgs}."
 
 def generate_website_reference(authors, year, title, url, access_date):
-    """Format: Author (Year) Title. Available from: URL [Accessed Date]."""
     return f"{authors} ({year}) {title}. Available from: {url} [Accessed {access_date}]."
 
 def get_sort_key(ref):
