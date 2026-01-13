@@ -1,7 +1,8 @@
 import requests
+import re
+from bs4 import BeautifulSoup
 
 def search_books(query):
-    """Fetch book metadata from Google Books API."""
     url = f"https://www.googleapis.com/books/v1/volumes?q={query}&maxResults=3"
     try:
         response = requests.get(url, timeout=5)
@@ -21,7 +22,6 @@ def search_books(query):
         return []
 
 def search_journals(query):
-    """Fetch journal metadata from CrossRef API."""
     url = f"https://api.crossref.org/works?query={query}&rows=3"
     try:
         response = requests.get(url, timeout=5)
@@ -45,21 +45,26 @@ def search_journals(query):
     except:
         return []
 
-def generate_book_reference(authors, year, title, publisher, city="", edition=""):
-    auth_str = " and ".join(authors) if isinstance(authors, list) else authors
-    ref = f"{auth_str} ({year}) {title}."
-    if edition: ref += f" {edition} edn."
-    if city: ref += f" {city}:"
-    ref += f" {publisher}."
-    return ref
+def scrape_website_metadata(url):
+    try:
+        headers = {'User-Agent': 'Mozilla/5.0'}
+        response = requests.get(url, headers=headers, timeout=5)
+        soup = BeautifulSoup(response.text, 'html.parser')
+        title = soup.title.string if soup.title else "Unknown Title"
+        year_match = re.search(r'20\d{2}', response.text)
+        year = year_match.group(0) if year_match else "no date"
+        return {"title": title.strip(), "year": year}
+    except:
+        return {"title": "", "year": ""}
+
+def generate_book_reference(authors, year, title, publisher):
+    return f"{authors} ({year}) {title}. {publisher}."
 
 def generate_journal_reference(authors, year, art_title, j_title, vol, iss, pgs):
-    auth_str = " and ".join(authors) if isinstance(authors, list) else authors
-    return f"{auth_str} ({year}) '{art_title}', {j_title}, {vol}({iss}), pp. {pgs}."
+    return f"{authors} ({year}) '{art_title}', {j_title}, {vol}({iss}), pp. {pgs}."
 
 def generate_website_reference(authors, year, title, url, access_date):
-    auth_str = " and ".join(authors) if isinstance(authors, list) else authors
-    return f"{auth_str} ({year}) {title}. Available from: {url} [Accessed {access_date}]."
+    return f"{authors} ({year}) {title}. Available from: {url} [Accessed {access_date}]."
 
 def get_sort_key(ref):
     return ref.lower()
