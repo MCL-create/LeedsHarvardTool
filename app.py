@@ -4,91 +4,136 @@ import os
 from io import BytesIO
 from docx import Document
 from docx.shared import Pt
-from leeds_harvard_tool import generate_book_reference, generate_journal_reference, generate_website_reference, get_sort_key
+import leeds_harvard_tool as lht
 
-# --- 1. MANDATORY INITIALIZATION ---
+# --- 1. INITIALIZATION ---
 if 'bibliography' not in st.session_state:
     st.session_state.bibliography = []
 if 'audit_results' not in st.session_state:
     st.session_state.audit_results = None
 
-# --- 2. MCL BRANDED THEME (#e6f7f8 background, #009688 buttons) ---
+# --- 2. MCL BRANDED THEME ---
 st.set_page_config(page_title="MCL Leeds Harvard Tool", page_icon="📚", layout="wide")
 st.markdown(f"""
     <style>
     .stApp {{ background-color: #e6f7f8; color: #37474f; }}
     .stTabs [aria-selected="true"] {{ background-color: #009688 !important; color: white !important; }}
-    div.stButton > button {{ background-color: #009688; color: white; border-radius: 5px; font-weight: bold; width: 100%; }}
+    div.stButton > button {{ background-color: #009688; color: white; border-radius: 5px; font-weight: bold; }}
+    .mcl-card {{ background-color: #ffffff; padding: 20px; border-radius: 10px; border-left: 8px solid #f9a825; margin-bottom: 20px; }}
     </style>
 """, unsafe_allow_html=True)
 
-# --- 3. HEADER RESTORATION ---
-header_file = "assets/HeadernoSQA.jpg"
-if os.path.exists(header_file):
-    st.image(header_file, use_column_width=True)
+# --- 3. BRANDED HEADER ---
+header_path = "assets/HeadernoSQA.jpg"
+if os.path.exists(header_path):
+    st.image(header_path, use_column_width=True)
 
 # --- 4. TABS ---
 tab1, tab2, tab3, tab4, tab5 = st.tabs(["📖 Book", "📰 Journal", "🌐 Website", "📋 Bibliography", "🔍 Essay Audit"])
 
-# (Standard forms for Tabs 1-4 omitted for brevity)
+# --- TAB 1: BOOK (WITH MAGIC FILL) ---
+with tab1:
+    st.header("Book Reference")
+    with st.expander("✨ Magic Fill: Search by Title"):
+        query = st.text_input("Enter Book Title", key="book_search")
+        if query:
+            matches = lht.search_books(query)
+            if matches:
+                choice = st.selectbox("Select match:", [m['label'] for m in matches])
+                if st.button("Use Selected Data"):
+                    selected = next(m for m in matches if m['label'] == choice)
+                    st.session_state.k_b_auth = selected['authors']
+                    st.session_state.k_b_yr = selected['year']
+                    st.session_state.k_b_tit = selected['title']
+                    st.session_state.k_b_pub = selected['publisher']
 
-# --- TAB 5: ADVANCED AUDIT WITH FEEDBACK ---
+    with st.form("book_form", clear_on_submit=True):
+        auth = st.text_input("Authors", key="k_b_auth", value=st.session_state.get('k_b_auth', ''))
+        yr = st.text_input("Year", key="k_b_yr", value=st.session_state.get('k_b_yr', ''))
+        tit = st.text_input("Title", key="k_b_tit", value=st.session_state.get('k_b_tit', ''))
+        pub = st.text_input("Publisher", key="k_b_pub", value=st.session_state.get('k_b_pub', ''))
+        if st.form_submit_button("Add to Bibliography"):
+            res = lht.generate_book_reference(auth, yr, tit, pub)
+            st.session_state.bibliography.append(res)
+            st.success("Added!")
+
+# --- TAB 2: JOURNAL (WITH MAGIC FILL) ---
+with tab2:
+    st.header("Journal Reference")
+    with st.expander("✨ Magic Fill: Search by Article Title"):
+        j_query = st.text_input("Enter Article Title", key="j_search")
+        if j_query:
+            j_matches = lht.search_journals(j_query)
+            if j_matches:
+                j_choice = st.selectbox("Select match:", [m['label'] for m in j_matches])
+                if st.button("Use Journal Data"):
+                    sel = next(m for m in j_matches if m['label'] == j_choice)
+                    st.session_state.k_j_auth = sel['authors']
+                    st.session_state.k_j_yr = sel['year']
+                    st.session_state.k_j_art_tit = sel['title']
+                    st.session_state.k_j_jou_tit = sel['journal']
+
+    with st.form("journal_form", clear_on_submit=True):
+        j_auth = st.text_input("Authors", key="k_j_auth", value=st.session_state.get('k_j_auth', ''))
+        j_yr = st.text_input("Year", key="k_j_yr", value=st.session_state.get('k_j_yr', ''))
+        a_tit = st.text_input("Article Title", key="k_j_art_tit", value=st.session_state.get('k_j_art_tit', ''))
+        j_tit = st.text_input("Journal Title", key="k_j_jou_tit", value=st.session_state.get('k_j_jou_tit', ''))
+        vol = st.text_input("Vol", key="k_j_vol")
+        iss = st.text_input("Iss", key="k_j_iss")
+        pgs = st.text_input("Pgs", key="k_j_pgs")
+        if st.form_submit_button("Add to Bibliography"):
+            res = lht.generate_journal_reference(j_auth, j_yr, a_tit, j_tit, vol, iss, pgs)
+            st.session_state.bibliography.append(res)
+            st.success("Added!")
+
+# --- TAB 4: BIBLIOGRAPHY (Alphabetical) ---
+with tab4:
+    st.header("Your Bibliography")
+    st.session_state.bibliography.sort(key=lht.get_sort_key)
+    for ref in st.session_state.bibliography:
+        st.write(ref)
+    if st.button("Clear All"):
+        st.session_state.bibliography = []
+        st.rerun()
+
+# --- TAB 5: AUDIT (BRANDED + FEEDBACK) ---
 with tab5:
-    st.header("🔍 Essay Citation Audit")
-    uploaded_file = st.file_uploader("Upload Essay (.docx)", type="docx", key="mcl_master_uploader")
-    
-    if uploaded_file:
-        if st.button("Run Full MCL Audit"):
-            doc_input = Document(uploaded_file)
-            bib_text = " ".join(st.session_state.bibliography).lower()
+    st.header("🔍 Essay Audit")
+    uploaded = st.file_uploader("Upload .docx", type="docx")
+    if uploaded:
+        if st.button("Run Audit"):
+            doc = Document(uploaded)
+            bib_low = " ".join(st.session_state.bibliography).lower()
             results = []
-            
-            for i, para in enumerate(doc_input.paragraphs):
-                # Regex for Leeds Harvard (Author, Year)
-                found_cites = re.findall(r'\(([^)]{2,100}?\d{4}[^)]{0,50}?)\)', para.text)
-                
-                for c in found_cites:
+            for i, p in enumerate(doc.paragraphs):
+                found = re.findall(r'\(([^)]{2,100}?\d{4}[^)]{0,50}?)\)', p.text)
+                for c in found:
                     surname = c.split(',')[0].split(' ')[0].lower()
-                    matched = surname in bib_text
-                    
-                    # Feedback Logic 
-                    has_quote = '"' in para.text or "'" in para.text
-                    needs_page = "p." not in c.lower() and has_quote
-                    
+                    matched = surname in bib_low
                     status = "✅ Matched" if matched else "⚠️ Missing"
-                    feedback = "Formatting looks correct."
-                    if not matched:
-                        feedback = "Check spelling or ensure this is in your bibliography."
-                    if needs_page:
-                        feedback = "Quote detected: Add a page number (e.g., p.10)."
-
-                    results.append({"Location": f"Para {i+1}", "Citation": f"({c})", "Status": status, "Feedback": feedback})
-
-            # --- WORD REPORT WITH HEADER & APTOS FONT ---
-            report_doc = Document()
-            if os.path.exists(header_file):
-                report_doc.add_picture(header_file, width=Pt(450))
+                    feedback = "Correct." if matched else "Check spelling or add to bibliography."
+                    if '"' in p.text and "p." not in c.lower():
+                        feedback = "Direct quote detected: Needs page number (e.g., p.12)."
+                    results.append({"Para": i+1, "Citation": f"({c})", "Status": status, "Feedback": feedback})
+            st.session_state.audit_results = results
             
-            report_doc.add_heading('MCL Citation Audit Report', 0)
-            style = report_doc.styles['Normal']
+            # Create Word Report with Header & Aptos
+            rep = Document()
+            if os.path.exists(header_path): rep.add_picture(header_path, width=Pt(450))
+            rep.add_heading("MCL Audit Report", 0)
+            style = rep.styles['Normal']
             style.font.name = 'Aptos'
             style.font.size = Pt(11)
-
-            # Table Generation [cite: 105]
-            table = report_doc.add_table(rows=1, cols=4)
-            table.style = 'Table Grid'
-            hdr = table.rows[0].cells
-            hdr[0].text, hdr[1].text, hdr[2].text, hdr[3].text = 'Loc', 'Citation', 'Status', 'Feedback'
-
+            t = rep.add_table(rows=1, cols=4)
+            t.style = 'Table Grid'
+            for idx, text in enumerate(["Para", "Citation", "Status", "Feedback"]): t.rows[0].cells[idx].text = text
             for res in results:
-                row = table.add_row().cells
-                row[0].text, row[1].text, row[2].text, row[3].text = res['Location'], res['Citation'], res['Status'], res['Feedback']
-
-            buf = BytesIO()
-            report_doc.save(buf)
-            st.session_state.audit_results = results
-            st.session_state.report_docx = buf.getvalue()
+                row = t.add_row().cells
+                row[0].text, row[1].text, row[2].text, row[3].text = str(res['Para']), res['Citation'], res['Status'], res['Feedback']
+            b = BytesIO()
+            rep.save(b)
+            st.session_state.report_docx = b.getvalue()
 
     if st.session_state.audit_results:
         st.table(st.session_state.audit_results)
-        st.download_button("📥 Download Branded Audit Report (.docx)", st.session_state.report_docx, "MCL_Audit_Report.docx")
+        st.download_button("📥 Download Branded Report", st.session_state.report_docx, "MCL_Audit.docx")
