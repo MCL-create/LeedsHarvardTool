@@ -3,7 +3,7 @@ import re
 from bs4 import BeautifulSoup
 
 # --- MCL MASTER CORRECTION MAP (The Gold Standard) ---
-# This ensures that these specific topics always output the FULL correct Leeds Harvard version.
+# Verified references for Scottish Social Care and UK Legislation
 GOLD_STANDARD = {
     "bee": "Bee, H. and Boyd, D. (2002) Life Span Development. 3rd ed. London: Allyn and Bacon.",
     "sssc": "Scottish Social Services Council (2024) SSSC Codes of Practice for Social Service Workers and Employers. [Online]. [Accessed 13 Jan 2026]. Available from: https://www.sssc.uk.com",
@@ -22,7 +22,7 @@ def clean_text(text):
     return re.sub(r'[^\w\s]', '', text).lower().strip()
 
 def apply_one_click_corrections(current_bib):
-    """Replaces any bibliography entry with its Gold Standard version if a match exists."""
+    """Replaces entries with Gold Standard versions if a keyword match exists."""
     corrected_bib = []
     for entry in current_bib:
         cleaned_entry = clean_text(entry)
@@ -37,7 +37,7 @@ def apply_one_click_corrections(current_bib):
     return list(set(corrected_bib))
 
 def search_books(query):
-    """Google Books API search with query cleaning."""
+    """Cleaned Google Books API search."""
     clean_query = query.lower().replace("3rd ed", "").replace("london", "").strip()
     url = f"https://www.googleapis.com/books/v1/volumes?q={clean_query}&maxResults=3"
     try:
@@ -61,9 +61,6 @@ def generate_book_reference(authors, year, title, publisher, edition=""):
     if edition: ref += f" {edition} edn."
     ref += f" {publisher}."
     return ref
-
-def generate_website_reference(authors, year, title, url, access_date):
-    return f"{authors} ({year}) {title}. [Online]. [Accessed {access_date}]. Available from: {url}"
 
 def get_sort_key(ref):
     return ref.lower()
