@@ -19,12 +19,11 @@ st.markdown(f"""
     .stApp {{ background-color: #e6f7f8; color: #37474f; }}
     .stTabs [aria-selected="true"] {{ background-color: #009688 !important; color: white !important; }}
     div.stButton > button {{ background-color: #009688; color: white; border-radius: 5px; font-weight: bold; width: 100%; }}
-    .mcl-card {{ background-color: #ffffff; padding: 20px; border-radius: 10px; border-left: 8px solid #f9a825; margin-bottom: 20px; }}
     </style>
 """, unsafe_allow_html=True)
 
-# --- 3. BRANDED HEADER (Standardized Path) ---
-header_path = "assets/Header.png" # Using your updated file name
+# --- 3. BRANDED HEADER ---
+header_path = "assets/Header.png"
 if os.path.exists(header_path):
     st.image(header_path, use_column_width=True)
 
@@ -40,7 +39,7 @@ with tab1:
             matches = lht.search_books(query)
             if matches:
                 choice = st.selectbox("Select match:", [m['label'] for m in matches])
-                if st.button("Use Selected Data"):
+                if st.button("Use Selected Book Data"):
                     selected = next(m for m in matches if m['label'] == choice)
                     st.session_state.k_b_auth = selected['authors']
                     st.session_state.k_b_yr = selected['year']
@@ -53,8 +52,7 @@ with tab1:
         tit = st.text_input("Title", key="k_b_tit", value=st.session_state.get('k_b_tit', ''))
         pub = st.text_input("Publisher", key="k_b_pub", value=st.session_state.get('k_b_pub', ''))
         if st.form_submit_button("Add to Bibliography"):
-            res = lht.generate_book_reference(auth, yr, tit, pub)
-            st.session_state.bibliography.append(res)
+            st.session_state.bibliography.append(lht.generate_book_reference(auth, yr, tit, pub))
             st.success("Added!")
 
 # --- TAB 2: JOURNAL (MAGIC FILL) ---
@@ -66,7 +64,7 @@ with tab2:
             j_matches = lht.search_journals(j_query)
             if j_matches:
                 j_choice = st.selectbox("Select match:", [m['label'] for m in j_matches])
-                if st.button("Use Journal Data"):
+                if st.button("Use Selected Journal Data"):
                     sel = next(m for m in j_matches if m['label'] == j_choice)
                     st.session_state.k_j_auth = sel['authors']
                     st.session_state.k_j_yr = sel['year']
@@ -78,34 +76,31 @@ with tab2:
         j_yr = st.text_input("Year", key="k_j_yr", value=st.session_state.get('k_j_yr', ''))
         a_tit = st.text_input("Article Title", key="k_j_art_tit", value=st.session_state.get('k_j_art_tit', ''))
         j_tit = st.text_input("Journal Title", key="k_j_jou_tit", value=st.session_state.get('k_j_jou_tit', ''))
-        v = st.text_input("Volume")
-        i = st.text_input("Issue")
-        p = st.text_input("Pages")
+        v = st.text_input("Volume"); i = st.text_input("Issue"); p = st.text_input("Pages")
         if st.form_submit_button("Add to Bibliography"):
-            res = lht.generate_journal_reference(j_auth, j_yr, a_tit, j_tit, v, i, p)
-            st.session_state.bibliography.append(res)
+            st.session_state.bibliography.append(lht.generate_journal_reference(j_auth, j_yr, a_tit, j_tit, v, i, p))
             st.success("Added!")
 
-# --- TAB 3: WEBSITE (MAGIC FILL) ---
+# --- TAB 3: WEBSITE (NEW MAGIC FILL) ---
 with tab3:
     st.header("Website Reference")
     with st.expander("✨ Magic Fill: Auto-Fill from URL"):
-        web_url = st.text_input("Paste URL here")
+        w_url_input = st.text_input("Paste Website URL")
         if st.button("Fetch Details"):
-            w_data = lht.scrape_website_metadata(web_url)
+            w_data = lht.scrape_website_metadata(w_url_input)
             st.session_state.k_w_tit = w_data['title']
             st.session_state.k_w_yr = w_data['year']
-            st.session_state.k_w_url = web_url
+            st.session_state.k_w_url = w_url_input
+            st.success("Details fetched!")
 
     with st.form("web_form", clear_on_submit=True):
         w_auth = st.text_input("Author/Organization")
         w_yr = st.text_input("Year", value=st.session_state.get('k_w_yr', ''))
         w_tit = st.text_input("Page Title", value=st.session_state.get('k_w_tit', ''))
         w_url = st.text_input("URL", value=st.session_state.get('k_w_url', ''))
-        w_acc = st.text_input("Date Accessed")
+        w_acc = st.text_input("Date Accessed (e.g. 13 Jan 2026)")
         if st.form_submit_button("Add to Bibliography"):
-            res = lht.generate_website_reference(w_auth, w_yr, w_tit, w_url, w_acc)
-            st.session_state.bibliography.append(res)
+            st.session_state.bibliography.append(lht.generate_website_reference(w_auth, w_yr, w_tit, w_url, w_acc))
             st.success("Added!")
 
 # --- TAB 4: BIBLIOGRAPHY ---
@@ -115,12 +110,12 @@ with tab4:
     for r in st.session_state.bibliography:
         st.write(r)
 
-# --- TAB 5: AUDIT (WITH FEEDBACK) ---
+# --- TAB 5: AUDIT (BRANDED + FEEDBACK) ---
 with tab5:
     st.header("🔍 Essay Audit")
     uploaded = st.file_uploader("Upload .docx", type="docx")
     if uploaded:
-        if st.button("Run Full Audit"):
+        if st.button("Run Full MCL Audit"):
             doc = Document(uploaded)
             bib_low = " ".join(st.session_state.bibliography).lower()
             results = []
@@ -129,30 +124,24 @@ with tab5:
                 for c in cites:
                     surname = c.split(',')[0].split(' ')[0].lower()
                     matched = surname in bib_low
-                    status = "✅ Matched" if matched else "⚠️ Missing"
-                    feedback = "Formatting correct." if matched else "Check bibliography."
+                    feedback = "Formatting correct." if matched else "Check spelling or add to bibliography."
                     if '"' in p.text and "p." not in c.lower():
-                        feedback = "Direct quote: Add page number (e.g. p.10)."
-                    results.append({"Para": i+1, "Citation": f"({c})", "Status": status, "Feedback": feedback})
+                        feedback = "Direct quote detected: Needs page number (e.g. p.10)."
+                    results.append({"Para": i+1, "Citation": f"({c})", "Status": "✅" if matched else "⚠️", "Feedback": feedback})
             st.session_state.audit_results = results
             
             # Word Report Generation (Header + Aptos)
             rep = Document()
             if os.path.exists(header_path): rep.add_picture(header_path, width=Pt(450))
             rep.add_heading("MCL Audit Report", 0)
-            style = rep.styles['Normal']
-            style.font.name = 'Aptos'
-            style.font.size = Pt(11)
-            t = rep.add_table(rows=1, cols=4)
-            t.style = 'Table Grid'
+            style = rep.styles['Normal']; style.font.name = 'Aptos'; style.font.size = Pt(11)
+            t = rep.add_table(rows=1, cols=4); t.style = 'Table Grid'
             for idx, text in enumerate(["Para", "Citation", "Status", "Feedback"]): t.rows[0].cells[idx].text = text
             for res in results:
                 row = t.add_row().cells
                 row[0].text, row[1].text, row[2].text, row[3].text = str(res['Para']), res['Citation'], res['Status'], res['Feedback']
-            b = BytesIO()
-            rep.save(b)
-            st.session_state.report_docx = b.getvalue()
+            b = BytesIO(); rep.save(b); st.session_state.report_docx = b.getvalue()
 
     if st.session_state.audit_results:
         st.table(st.session_state.audit_results)
-        st.download_button("📥 Download Branded Report", st.session_state.report_docx, "MCL_Audit.docx")
+        st.download_button("📥 Download Branded Report", st.session_state.report_docx, "MCL_Audit_Report.docx")
