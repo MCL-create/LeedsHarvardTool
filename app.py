@@ -7,13 +7,21 @@ from docx.shared import Pt
 import leeds_harvard_tool as lht
 
 # --- INITIALIZATION ---
-if 'bibliography' not in st.session_state: st.session_state.bibliography = []
+if 'bibliography' not in st.session_state: 
+    st.session_state.bibliography = []
 
 # --- BRANDING ---
 st.set_page_config(page_title="MCL Leeds Harvard Tool", page_icon="📚", layout="wide")
-st.markdown("<style>.stApp { background-color: #e6f7f8; } div.stButton > button { background-color: #009688; color: white; border-radius: 5px; }</style>", unsafe_allow_html=True)
+st.markdown("""
+    <style>
+    .stApp { background-color: #e6f7f8; } 
+    div.stButton > button { background-color: #009688; color: white; border-radius: 5px; font-weight: bold; }
+    .stTabs [aria-selected="true"] { background-color: #009688 !important; color: white !important; }
+    </style>
+""", unsafe_allow_html=True)
 
-if os.path.exists("assets/Header.png"): st.image("assets/Header.png", use_column_width=True)
+if os.path.exists("assets/Header.png"): 
+    st.image("assets/Header.png", use_column_width=True)
 
 # --- REORDERED TABS ---
 tabs = st.tabs(["🏠 Guide", "📖 Book", "📰 Journal", "🌐 Website", "📋 Bibliography", "🔍 Smart Audit", "📚 Glossary"])
@@ -24,21 +32,30 @@ with tabs[0]:
     st.markdown("""
     <div style="background-color: #009688; padding: 20px; border-radius: 10px; color: white;">
         <h3>What is the Leeds Harvard Method?</h3>
-        <p>This is an <strong>Author-Date</strong> system. It ensures your academic work is credible, allows others to find your research, and protects you against plagiarism.</p>
+        <p>The Leeds Harvard referencing style is a widely used academic system for acknowledging sources. It is based on the <strong>author–date principle</strong>. This method is used to avoid plagiarism, show evidence of research, and help readers track down sources.</p>
     </div>
     """, unsafe_allow_html=True)
     
     col_l, col_r = st.columns(2)
     with col_l:
         st.subheader("📝 In-text Citations")
-        st.write("Required whenever you use someone else's idea.")
-        st.markdown("- **Standard:** (Author, Year)\n- **Direct Quote:** (Author, Year, p. X)")
+        st.markdown("""
+        Brief references within the text of your essay.
+        * **Standard:** (Author, Year)
+        * **Direct Quote:** (Author, Year, p. X)
+        
+        *Example:* Social workers require advocacy skills (Bateman, 2000).
+        """)
     with col_r:
         st.subheader("📚 The Bibliography")
-        st.write("The alphabetical list at the end of your essay.")
-        st.info("Author. (Year) Title. Edition. Place: Publisher.")
+        st.markdown("""
+        A full citation at the end of your work, listed alphabetically by surname.
+        * **Format:** Author. (Year) *Title*. Edition. Place: Publisher.
+        """)
+    
     st.divider()
-    st.subheader("✅ MCL Gold Standard Reference List")
+    st.subheader("✅ MCL Gold Standard Examples")
+    st.write("The 'One-Click' fix ensures these core texts are formatted exactly like this:")
     st.info("**Bee, H. and Boyd, D. (2002)** Life Span Development. 3rd ed. London: Allyn and Bacon.")
     st.info("**SSSC (2024)** Codes of Practice for Social Service Workers and Employers.")
 
@@ -112,22 +129,28 @@ with tabs[4]:
         if st.button("🪄 One-Click Correction"):
             st.session_state.bibliography = lht.apply_one_click_corrections(st.session_state.bibliography)
             st.rerun()
+        
+        # Word Export
         doc = Document()
         doc.add_heading('Bibliography', 0)
         st.session_state.bibliography.sort(key=lht.get_sort_key)
         for ref in st.session_state.bibliography:
             p = doc.add_paragraph(ref)
             p.style.font.name = 'Aptos'; p.style.font.size = Pt(11)
+        
         buf = BytesIO(); doc.save(buf)
         st.download_button("📥 Download (.docx)", buf.getvalue(), "MCL_Bib.docx")
         st.divider()
+        st.write(f"**Total Sources:** {len(st.session_state.bibliography)}")
         for r in st.session_state.bibliography: st.info(r)
+    else:
+        st.write("Your bibliography is currently empty.")
 
 # --- TAB 6: SMART AUDIT ---
 with tabs[5]:
-    st.header("🔍 Smart Audit")
-    up = st.file_uploader("Upload .docx", type="docx")
-    if up and st.button("Audit"):
+    st.header("🔍 Smart Essay Audit")
+    up = st.file_uploader("Upload Essay (.docx)", type="docx")
+    if up and st.button("Run Audit"):
         doc = Document(up)
         clean_bib = [lht.clean_text(b) for b in st.session_state.bibliography]
         results = []
@@ -138,15 +161,15 @@ with tabs[5]:
                 results.append({"Para": i+1, "Citation": f"({c})", "Status": "✅" if match else "⚠️"})
         st.table(results)
 
-# --- TAB 7: GLOSSARY (NEW TAB) ---
+# --- TAB 7: GLOSSARY ---
 with tabs[6]:
     st.header("📚 Academic Glossary")
     st.markdown("""
-    **Plagiarism:** Presenting someone else's work or ideas as your own, with or without their consent.
+    **Plagiarism:** Presenting someone else's work as your own.
     
-    **Paraphrasing:** Rewriting someone else's ideas in your own words. You still need an in-text citation!
+    **Paraphrasing:** Rewriting ideas in your own words. (Still needs a citation!)
     
-    **Secondary Citation:** When you cite a work that is mentioned in another work (e.g., *Smith cited in Jones*).
+    **Secondary Citation:** Citing a work mentioned in another work (e.g., Smith cited in Jones).
     
-    **Direct Quote:** Using the exact words from a source. Requires "quotation marks" and a page number.
+    **Direct Quote:** Exact words from a source. Requires "quotation marks" and a page number.
     """)
