@@ -16,13 +16,14 @@ GOLD_STANDARD = {
 }
 
 def clean_text(text):
-    """Standardizes text for matching by removing formatting and clutter."""
+    """Standardizes text for fuzzy matching by removing formatting and clutter."""
     if not text: return ""
+    # Simplify by taking the first part of the title and removing punctuation/case
     text = re.split(r'[:|–|-]', text)[0]
     return re.sub(r'[^\w\s]', '', text).lower().strip()
 
 def apply_one_click_corrections(current_bib):
-    """Replaces entries with Gold Standard versions if a keyword match exists."""
+    """Replaces messy entries with the full correct Leeds Harvard version."""
     corrected_bib = []
     for entry in current_bib:
         cleaned_entry = clean_text(entry)
@@ -37,7 +38,7 @@ def apply_one_click_corrections(current_bib):
     return list(set(corrected_bib))
 
 def search_books(query):
-    """Cleaned Google Books API search."""
+    """Google Books API search with query cleaning to ignore edition/city."""
     clean_query = query.lower().replace("3rd ed", "").replace("london", "").strip()
     url = f"https://www.googleapis.com/books/v1/volumes?q={clean_query}&maxResults=3"
     try:
@@ -48,7 +49,7 @@ def search_books(query):
             info = item.get('volumeInfo', {})
             results.append({
                 'label': f"{info.get('title')} ({info.get('publishedDate', 'N/A')[:4]})",
-                'authors': ", ".join(info.get('authors', ["Unknown"])),
+                'authors': ", ".join(info.get('authors', ["Unknown Author"])),
                 'year': info.get('publishedDate', 'N/A')[:4],
                 'title': info.get('title', 'N/A'),
                 'publisher': info.get('publisher', 'N/A')
@@ -61,6 +62,9 @@ def generate_book_reference(authors, year, title, publisher, edition=""):
     if edition: ref += f" {edition} edn."
     ref += f" {publisher}."
     return ref
+
+def generate_website_reference(authors, year, title, url, access_date):
+    return f"{authors} ({year}) {title}. [Online]. [Accessed {access_date}]. Available from: {url}"
 
 def get_sort_key(ref):
     return ref.lower()
