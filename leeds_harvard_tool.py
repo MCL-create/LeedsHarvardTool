@@ -2,7 +2,6 @@ import requests
 import re
 from bs4 import BeautifulSoup
 
-# --- MCL MASTER CORRECTION MAP ---
 GOLD_STANDARD = {
     "bee": "Bee, H. and Boyd, D. (2002) Life Span Development. 3rd ed. London: Allyn and Bacon.",
     "sssc": "Scottish Social Services Council (2024) SSSC Codes of Practice for Social Service Workers and Employers. [Online]. [Accessed 13 Jan 2026]. Available from: https://www.sssc.uk.com",
@@ -28,8 +27,7 @@ def apply_one_click_corrections(current_bib):
                 corrected_bib.append(gold_ref)
                 match_found = True
                 break
-        if not match_found:
-            corrected_bib.append(entry)
+        if not match_found: corrected_bib.append(entry)
     return list(set(corrected_bib))
 
 def search_books(query):
@@ -63,8 +61,7 @@ def search_journals(query):
             results.append({
                 'label': f"{title} ({year})",
                 'authors': ", ".join(author_list) if author_list else "Unknown Author",
-                'year': year,
-                'title': title,
+                'year': year, 'title': title,
                 'journal': item.get('container-title', ['N/A'])[0],
                 'vol': item.get('volume', ' '), 'iss': item.get('issue', ' '), 'pgs': item.get('page', ' ')
             })
