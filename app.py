@@ -11,14 +11,39 @@ if 'bibliography' not in st.session_state: st.session_state.bibliography = []
 
 # --- BRANDING ---
 st.set_page_config(page_title="MCL Leeds Harvard Tool", page_icon="📚", layout="wide")
-st.markdown("<style>.stApp { background-color: #e6f7f8; } div.stButton > button { background-color: #009688; color: white; }</style>", unsafe_allow_html=True)
+st.markdown("<style>.stApp { background-color: #e6f7f8; } div.stButton > button { background-color: #009688; color: white; border-radius: 5px; }</style>", unsafe_allow_html=True)
 
 if os.path.exists("assets/Header.png"): st.image("assets/Header.png", use_column_width=True)
 
-tabs = st.tabs(["📖 Book", "📰 Journal", "🌐 Website", "📋 Bibliography", "🔍 Smart Audit", "💡 Guide"])
+# --- REORDERED TABS ---
+tabs = st.tabs(["🏠 Guide", "📖 Book", "📰 Journal", "🌐 Website", "📋 Bibliography", "🔍 Smart Audit", "📚 Glossary"])
 
-# --- TAB 1: BOOK ---
+# --- TAB 1: GUIDE (OPENING PAGE) ---
 with tabs[0]:
+    st.title("🎓 Welcome to the Leeds Harvard Referencing Tool")
+    st.markdown("""
+    <div style="background-color: #009688; padding: 20px; border-radius: 10px; color: white;">
+        <h3>What is the Leeds Harvard Method?</h3>
+        <p>This is an <strong>Author-Date</strong> system. It ensures your academic work is credible, allows others to find your research, and protects you against plagiarism.</p>
+    </div>
+    """, unsafe_allow_html=True)
+    
+    col_l, col_r = st.columns(2)
+    with col_l:
+        st.subheader("📝 In-text Citations")
+        st.write("Required whenever you use someone else's idea.")
+        st.markdown("- **Standard:** (Author, Year)\n- **Direct Quote:** (Author, Year, p. X)")
+    with col_r:
+        st.subheader("📚 The Bibliography")
+        st.write("The alphabetical list at the end of your essay.")
+        st.info("Author. (Year) Title. Edition. Place: Publisher.")
+    st.divider()
+    st.subheader("✅ MCL Gold Standard Reference List")
+    st.info("**Bee, H. and Boyd, D. (2002)** Life Span Development. 3rd ed. London: Allyn and Bacon.")
+    st.info("**SSSC (2024)** Codes of Practice for Social Service Workers and Employers.")
+
+# --- TAB 2: BOOK ---
+with tabs[1]:
     st.header("Book Reference")
     query = st.text_input("Search Book Title")
     if query:
@@ -38,8 +63,8 @@ with tabs[0]:
             st.session_state.bibliography.append(lht.generate_book_reference(a,y,t,p))
             st.success("Added!")
 
-# --- TAB 2: JOURNAL (NOW WORKING) ---
-with tabs[1]:
+# --- TAB 3: JOURNAL ---
+with tabs[2]:
     st.header("Journal Reference")
     j_query = st.text_input("Search Article Title")
     if j_query:
@@ -63,11 +88,11 @@ with tabs[1]:
             st.session_state.bibliography.append(lht.generate_journal_reference(ja,jy,jt,jj,jv,ji,jp))
             st.success("Added!")
 
-# --- TAB 3: WEBSITE (NOW WORKING) ---
-with tabs[2]:
+# --- TAB 4: WEBSITE ---
+with tabs[3]:
     st.header("Website Reference")
     url_in = st.text_input("Paste URL")
-    if st.button("Fetch Website Details"):
+    if st.button("Fetch Details"):
         w_data = lht.scrape_website(url_in)
         st.session_state.w_tit, st.session_state.w_yr, st.session_state.w_url = w_data['title'], w_data['year'], url_in
     with st.form("web_form"):
@@ -80,31 +105,29 @@ with tabs[2]:
             st.session_state.bibliography.append(lht.generate_web_reference(wa,wy,wt,wu,wd))
             st.success("Added!")
 
-# --- TAB 4: BIBLIOGRAPHY (ONE-CLICK + EXPORT) ---
-with tabs[3]:
-    st.header("Bibliography")
+# --- TAB 5: BIBLIOGRAPHY ---
+with tabs[4]:
+    st.header("Bibliography Management")
     if st.session_state.bibliography:
-        if st.button("🪄 One-Click Correction (Gold Standard)"):
+        if st.button("🪄 One-Click Correction"):
             st.session_state.bibliography = lht.apply_one_click_corrections(st.session_state.bibliography)
             st.rerun()
-        
         doc = Document()
         doc.add_heading('Bibliography', 0)
         st.session_state.bibliography.sort(key=lht.get_sort_key)
         for ref in st.session_state.bibliography:
             p = doc.add_paragraph(ref)
             p.style.font.name = 'Aptos'; p.style.font.size = Pt(11)
-        
         buf = BytesIO(); doc.save(buf)
         st.download_button("📥 Download (.docx)", buf.getvalue(), "MCL_Bib.docx")
         st.divider()
         for r in st.session_state.bibliography: st.info(r)
 
-# --- TAB 5: AUDIT ---
-with tabs[4]:
-    st.header("Smart Audit")
+# --- TAB 6: SMART AUDIT ---
+with tabs[5]:
+    st.header("🔍 Smart Audit")
     up = st.file_uploader("Upload .docx", type="docx")
-    if up and st.button("Audit Essay"):
+    if up and st.button("Audit"):
         doc = Document(up)
         clean_bib = [lht.clean_text(b) for b in st.session_state.bibliography]
         results = []
@@ -115,49 +138,15 @@ with tabs[4]:
                 results.append({"Para": i+1, "Citation": f"({c})", "Status": "✅" if match else "⚠️"})
         st.table(results)
 
-# --- TAB 6: GUIDE ---
-with tabs[5]:
-    st.header("Leeds Harvard Guide")
-    st.write("What is the Leeds Harvard Method? 
-
-The Leeds Harvard referencing style is a widely used academic system for acknowledging sources. It is based on the author–date principle: 
-
-In-text citations: A brief reference appears within the text (author’s surname, year, and page number if quoting). 
-
-Reference list: A full citation is provided at the end of the work, giving all the details needed to locate the source. 
-
-This method is used to: 
-
-Avoid plagiarism. 
-
-Show evidence of reading and research. 
-
-Help the reader track down sources. 
-
-The University of Leeds has its own version of Harvard, which is slightly stricter than some other institutions (for example, in how spacing, punctuation, and access dates are presented). 
-
-Key Features 
-
-In-text citation 
-
-Format: (Author, Year) or (Author, Year, p. X) if page numbers are needed. 
-
-Example (paraphrase): 
-
-Social workers require strong advocacy skills to empower service users (Bateman, 2000). 
-
-Example (direct quote): 
-
-“The casework relationship is central to effective practice” (Biestek, 1961, p. 45). 
-
-Reference list 
-
-Placed at the end of your work. 
-
-Listed alphabetically by author’s surname. 
-
-Each reference must include consistent information: author(s), year, title (in italics), edition if not the first, place of publication, and publisher. 
-
-Online sources must include a full URL and Accessed date.") 
-    st.write("**In-text:** (Author, Year). **Quote:** (Author, Year, p. X).")
-    st.write("**Bibliography:** Author (Year) Title. Place: Publisher.")
+# --- TAB 7: GLOSSARY (NEW TAB) ---
+with tabs[6]:
+    st.header("📚 Academic Glossary")
+    st.markdown("""
+    **Plagiarism:** Presenting someone else's work or ideas as your own, with or without their consent.
+    
+    **Paraphrasing:** Rewriting someone else's ideas in your own words. You still need an in-text citation!
+    
+    **Secondary Citation:** When you cite a work that is mentioned in another work (e.g., *Smith cited in Jones*).
+    
+    **Direct Quote:** Using the exact words from a source. Requires "quotation marks" and a page number.
+    """)
