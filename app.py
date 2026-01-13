@@ -47,11 +47,11 @@ with tab1:
         pub = st.text_input("Publisher", value=st.session_state.get('k_b_pub', ''))
         if st.form_submit_button("Add to Bibliography"):
             st.session_state.bibliography.append(lht.generate_book_reference(auth, yr, tit, pub))
-            st.success("Reference added to your list.")
+            st.success("Reference added.")
 
-# (Tabs 2 & 3: Journal and Website logic follow the same branding and fill pattern)
+# (Tabs 2 & 3 would follow the same pattern for Journals and Websites)
 
-# --- TAB 4: BIBLIOGRAPHY (THE CORRECTION HUB) ---
+# --- TAB 4: BIBLIOGRAPHY ---
 with tab4:
     st.header("Manage Bibliography")
     if st.session_state.bibliography:
@@ -63,7 +63,7 @@ with tab4:
     st.divider()
     st.session_state.bibliography.sort(key=lht.get_sort_key)
     for ref in st.session_state.bibliography:
-        st.info(ref) # Clean white box with turquoise border
+        st.info(ref)
     
     if st.button("Clear All"):
         st.session_state.bibliography = []; st.rerun()
