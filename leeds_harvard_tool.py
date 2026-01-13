@@ -3,7 +3,7 @@ import re
 from bs4 import BeautifulSoup
 
 def search_books(query):
-    """Fetches book data from Google Books API."""
+    """Google Books API search for auto-filling book data."""
     url = f"https://www.googleapis.com/books/v1/volumes?q={query}&maxResults=3"
     try:
         response = requests.get(url, timeout=5)
@@ -13,17 +13,16 @@ def search_books(query):
             info = item.get('volumeInfo', {})
             results.append({
                 'label': f"{info.get('title')} ({info.get('publishedDate', 'N/A')[:4]})",
-                'authors': ", ".join(info.get('authors', ["Unknown"])),
+                'authors': ", ".join(info.get('authors', ["Unknown Author"])),
                 'year': info.get('publishedDate', 'N/A')[:4],
                 'title': info.get('title', 'N/A'),
                 'publisher': info.get('publisher', 'N/A')
             })
         return results
-    except:
-        return []
+    except: return []
 
 def search_journals(query):
-    """Fetches journal data from CrossRef API."""
+    """CrossRef API search for auto-filling journal data."""
     url = f"https://api.crossref.org/works?query={query}&rows=3"
     try:
         response = requests.get(url, timeout=5)
@@ -32,7 +31,7 @@ def search_journals(query):
         for item in data.get('message', {}).get('items', []):
             title = item.get('title', ['N/A'])[0]
             year = str(item.get('created', {}).get('date-parts', [[0]])[0][0])
-            author_list = [f"{a.get('family', '')}, {a.get('given', '')[0]}" for a in item.get('author', []) if 'family' in a]
+            author_list = [f"{a.get('family', '')}, {a.get('given', '')[0]}." for a in item.get('author', []) if 'family' in a]
             results.append({
                 'label': f"{title} ({year})",
                 'authors': ", ".join(author_list) if author_list else "Unknown",
@@ -44,30 +43,35 @@ def search_journals(query):
                 'pgs': item.get('page', '')
             })
         return results
-    except:
-        return []
+    except: return []
 
 def scrape_website_metadata(url):
-    """Fetches Page Title and Year from a URL for the 'Magic Fill'."""
+    """Scrapes a URL to find the Page Title and Year (GIRFEC/SSSC compatible)."""
     try:
         headers = {'User-Agent': 'Mozilla/5.0'}
         response = requests.get(url, headers=headers, timeout=5)
         soup = BeautifulSoup(response.text, 'html.parser')
         title = soup.title.string if soup.title else "Unknown Title"
-        # Look for the most recent year in the text
         year_match = re.search(r'20\d{2}', response.text)
         year = year_match.group(0) if year_match else "no date"
         return {"title": title.strip(), "year": year}
-    except:
-        return {"title": "", "year": ""}
+    except: return {"title": "", "year": ""}
 
-def generate_book_reference(authors, year, title, publisher):
-    return f"{authors} ({year}) {title}. {publisher}."
+# --- FORMALLY FORMATTED LEEDS HARVARD STRINGS ---
+
+def generate_book_reference(authors, year, title, publisher, edition=""):
+    """Format: Author (Year) Title. Edition. Publisher."""
+    ref = f"{authors} ({year}) {title}."
+    if edition: ref += f" {edition} edn."
+    ref += f" {publisher}."
+    return ref
 
 def generate_journal_reference(authors, year, art_title, j_title, vol, iss, pgs):
+    """Format: Author (Year) 'Article Title', Journal Title, Vol(Iss), pp. pages."""
     return f"{authors} ({year}) '{art_title}', {j_title}, {vol}({iss}), pp. {pgs}."
 
 def generate_website_reference(authors, year, title, url, access_date):
+    """Format: Author (Year) Title. Available from: URL [Accessed Date]."""
     return f"{authors} ({year}) {title}. Available from: {url} [Accessed {access_date}]."
 
 def get_sort_key(ref):
