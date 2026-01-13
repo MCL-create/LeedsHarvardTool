@@ -3,8 +3,8 @@ import re
 from bs4 import BeautifulSoup
 
 def search_books(query):
-    # Clean query to improve API matching
-    clean_query = query.replace("3rd Ed", "").replace("London", "").strip()
+    """Google Books API search - cleaned to ignore edition/city for better matching."""
+    clean_query = query.lower().replace("3rd ed", "").replace("london", "").replace("allyn and bacon", "").strip()
     url = f"https://www.googleapis.com/books/v1/volumes?q={clean_query}&maxResults=3"
     try:
         response = requests.get(url, timeout=5)
@@ -23,6 +23,7 @@ def search_books(query):
     except: return []
 
 def search_journals(query):
+    """CrossRef API search for journal articles."""
     url = f"https://api.crossref.org/works?query={query}&rows=3"
     try:
         response = requests.get(url, timeout=5)
@@ -46,6 +47,7 @@ def search_journals(query):
     except: return []
 
 def scrape_website_metadata(url):
+    """Magic Fill for URLs: Extracts Title and Year."""
     try:
         headers = {'User-Agent': 'Mozilla/5.0'}
         response = requests.get(url, headers=headers, timeout=5)
