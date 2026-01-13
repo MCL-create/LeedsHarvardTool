@@ -118,7 +118,7 @@ with tabs[4]:
 # --- TAB 6: GUIDE ---
 with tabs[5]:
     st.header("Leeds Harvard Guide")
-    st.write("**What is the Leeds Harvard Method? 
+    st.write("What is the Leeds Harvard Method? 
 
 The Leeds Harvard referencing style is a widely used academic system for acknowledging sources. It is based on the author–date principle: 
 
@@ -158,6 +158,6 @@ Listed alphabetically by author’s surname.
 
 Each reference must include consistent information: author(s), year, title (in italics), edition if not the first, place of publication, and publisher. 
 
-Online sources must include a full URL and Accessed date. 
+Online sources must include a full URL and Accessed date.") 
     st.write("**In-text:** (Author, Year). **Quote:** (Author, Year, p. X).")
     st.write("**Bibliography:** Author (Year) Title. Place: Publisher.")
