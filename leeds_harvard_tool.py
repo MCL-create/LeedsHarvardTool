@@ -2,7 +2,7 @@ import requests
 import re
 from bs4 import BeautifulSoup
 
-# --- MCL MASTER CORRECTION MAP (Refined Formatting) ---
+# --- MCL MASTER CORRECTION MAP ---
 GOLD_STANDARD = {
     "bee": "Bee, H. and Boyd, D. 2002. Life span development. 3rd ed. London: Allyn and Bacon.",
     "sssc": "Scottish Social Services Council. 2024. SSSC Codes of Practice for Social Service Workers and Employers. [Online]. [Accessed 16 Jan 2026]. Available from: https://www.sssc.uk.com",
@@ -30,44 +30,18 @@ def apply_one_click_corrections(current_bib):
         if not match_found: corrected_bib.append(entry)
     return list(set(corrected_bib))
 
-def generate_book_reference(a, y, t, p, ed="", ser="", vol="", trans="", edt=""):
-    # Format: Family name, INITIAL(S). Year. Title.
+def generate_book_reference(a, y, t, p, ed="", ser="", vol=""):
     ref = f"{a}. {y}. {t}."
     if ser: ref += f" {ser},"
     if vol: ref += f" Vol {vol}."
     if ed: ref += f" {ed}."
-    if edt: ref += f" {edt} ed."
-    if trans: ref += f" Translated by {trans}."
     ref += f" {p}."
     return ref
 
+def generate_journal_reference(a, y, t, j, v, i, p):
+    # Format: Family name, INITIAL(S). Year. Title of article. Title of journal. Volume number (issue/part number), page number(s).
+    return f"{a}. {y}. {t}. {j}. {v} ({i}), pp.{p}."
+
 def generate_web_reference(a, y, t, u, d):
+    # Format: Family name, INITIAL(S) or Organization. Year. Title. [Online]. [Accessed date]. Available from: URL
     return f"{a}. {y}. {t}. [Online]. [Accessed {d}]. Available from: {u}"
-
-def search_books(query):
-    url = f"https://www.googleapis.com/books/v1/volumes?q={query}&maxResults=3"
-    try:
-        response = requests.get(url, timeout=5)
-        data = response.json()
-        results = []
-        for item in data.get('items', []):
-            info = item.get('volumeInfo', {})
-            results.append({
-                'label': f"{info.get('title')} ({info.get('publishedDate', 'N/A')[:4]})",
-                'authors': ", ".join(info.get('authors', ["Unknown Author"])),
-                'year': info.get('publishedDate', 'N/A')[:4],
-                'title': info.get('title', 'N/A'),
-                'publisher': info.get('publisher', 'N/A')
-            })
-        return results
-    except: return []
-
-def scrape_website(url):
-    try:
-        res = requests.get(url, timeout=5)
-        soup = BeautifulSoup(res.text, 'html.parser')
-        title = soup.title.string if soup.title else "Unknown Title"
-        year_match = re.search(r'20\d{2}', res.text)
-        year = year_match.group(0) if year_match else "no date"
-        return {"title": title.strip(), "year": year}
-    except: return {"title": "", "year": ""}
