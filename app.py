@@ -4,6 +4,7 @@ import os
 from io import BytesIO
 from docx import Document
 from docx.shared import Pt
+from docx.enum.text import WD_ALIGN_PARAGRAPH
 import leeds_harvard_tool as lht
 
 # --- INITIALIZATION ---
@@ -17,47 +18,35 @@ st.markdown("""
     .stApp { background-color: #e6f7f8; } 
     div.stButton > button { background-color: #009688; color: white; border-radius: 5px; font-weight: bold; }
     .stTabs [aria-selected="true"] { background-color: #009688 !important; color: white !important; }
+    .instruction-card { background-color: white; padding: 15px; border-radius: 10px; border-left: 5px solid #009688; margin-bottom: 10px; }
     </style>
 """, unsafe_allow_html=True)
 
 if os.path.exists("assets/Header.png"): 
     st.image("assets/Header.png", use_column_width=True)
 
-# --- REORDERED TABS ---
+# --- TABS ---
 tabs = st.tabs(["🏠 Guide", "📖 Book", "📰 Journal", "🌐 Website", "📋 Bibliography", "🔍 Smart Audit", "📚 Glossary"])
 
-# --- TAB 1: GUIDE (OPENING PAGE) ---
+# --- TAB 1: GUIDE ---
 with tabs[0]:
-    st.title("🎓 Welcome to the Leeds Harvard Referencing Tool")
+    st.title("🎓 Welcome to the MCL Referencing Assistant")
     st.markdown("""
     <div style="background-color: #009688; padding: 20px; border-radius: 10px; color: white;">
-        <h3>What is the Leeds Harvard Method?</h3>
-        <p>The Leeds Harvard referencing style is a widely used academic system for acknowledging sources. It is based on the <strong>author–date principle</strong>. This method is used to avoid plagiarism, show evidence of research, and help readers track down sources.</p>
+        <h3>How to use this tool:</h3>
+        <p>1. Add your sources using the <strong>Book, Journal,</strong> or <strong>Website</strong> tabs.</p>
+        <p>2. Review your list in the <strong>Bibliography</strong> tab and use 'One-Click Correction'.</p>
+        <p>3. Upload your essay to the <strong>Smart Audit</strong> to check for missing citations or quote errors.</p>
     </div>
     """, unsafe_allow_html=True)
-    
-    col_l, col_r = st.columns(2)
-    with col_l:
-        st.subheader("📝 In-text Citations")
-        st.markdown("""
-        Brief references within the text of your essay.
-        * **Standard:** (Author, Year)
-        * **Direct Quote:** (Author, Year, p. X)
-        
-        *Example:* Social workers require advocacy skills (Bateman, 2000).
-        """)
-    with col_r:
-        st.subheader("📚 The Bibliography")
-        st.markdown("""
-        A full citation at the end of your work, listed alphabetically by surname.
-        * **Format:** Author. (Year) *Title*. Edition. Place: Publisher.
-        """)
-    
-    st.divider()
-    st.subheader("✅ MCL Gold Standard Examples")
-    st.write("The 'One-Click' fix ensures these core texts are formatted exactly like this:")
-    st.info("**Bee, H. and Boyd, D. (2002)** Life Span Development. 3rd ed. London: Allyn and Bacon.")
-    st.info("**SSSC (2024)** Codes of Practice for Social Service Workers and Employers.")
+    st.write("")
+    col1, col2 = st.columns(2)
+    with col1:
+        st.subheader("📝 In-Text Citations")
+        st.markdown("- **Paraphrase:** (Author, Year)\n- **Direct Quote:** (Author, Year, p. X)")
+    with col2:
+        st.subheader("🖨️ Printable Guide")
+        st.write("Your downloaded Bibliography will include a 'Quick Reference' cover sheet for your desk.")
 
 # --- TAB 2: BOOK ---
 with tabs[1]:
@@ -67,7 +56,7 @@ with tabs[1]:
         matches = lht.search_books(query)
         if matches:
             choice = st.selectbox("Select match:", [m['label'] for m in matches])
-            if st.button("Use Book Data"):
+            if st.button("Use Data"):
                 sel = next(m for m in matches if m['label'] == choice)
                 st.session_state.b_auth, st.session_state.b_yr = sel['authors'], sel['year']
                 st.session_state.b_tit, st.session_state.b_pub = sel['title'], sel['publisher']
@@ -109,7 +98,7 @@ with tabs[2]:
 with tabs[3]:
     st.header("Website Reference")
     url_in = st.text_input("Paste URL")
-    if st.button("Fetch Details"):
+    if st.button("Fetch"):
         w_data = lht.scrape_website(url_in)
         st.session_state.w_tit, st.session_state.w_yr, st.session_state.w_url = w_data['title'], w_data['year'], url_in
     with st.form("web_form"):
@@ -117,7 +106,7 @@ with tabs[3]:
         wy = st.text_input("Year", value=st.session_state.get('w_yr', ''))
         wt = st.text_input("Page Title", value=st.session_state.get('w_tit', ''))
         wu = st.text_input("URL", value=st.session_state.get('w_url', ''))
-        wd = st.text_input("Accessed (e.g. 13 Jan 2026)")
+        wd = st.text_input("Accessed (e.g. 16 Jan 2026)")
         if st.form_submit_button("Add Website"):
             st.session_state.bibliography.append(lht.generate_web_reference(wa,wy,wt,wu,wd))
             st.success("Added!")
@@ -130,46 +119,50 @@ with tabs[4]:
             st.session_state.bibliography = lht.apply_one_click_corrections(st.session_state.bibliography)
             st.rerun()
         
-        # Word Export
+        # Doc Generation
         doc = Document()
-        doc.add_heading('Bibliography', 0)
+        doc.add_heading('Leeds Harvard Reference Guide', 0)
+        doc.add_paragraph("In-text: (Author, Year) | Quote: (Author, Year, p. X)").alignment = WD_ALIGN_PARAGRAPH.CENTER
+        doc.add_page_break()
+        doc.add_heading('Bibliography', 1)
         st.session_state.bibliography.sort(key=lht.get_sort_key)
         for ref in st.session_state.bibliography:
             p = doc.add_paragraph(ref)
             p.style.font.name = 'Aptos'; p.style.font.size = Pt(11)
         
         buf = BytesIO(); doc.save(buf)
-        st.download_button("📥 Download (.docx)", buf.getvalue(), "MCL_Bib.docx")
+        st.download_button("📥 Download Bibliography & Guide", buf.getvalue(), "MCL_Bibliography.docx")
         st.divider()
-        st.write(f"**Total Sources:** {len(st.session_state.bibliography)}")
         for r in st.session_state.bibliography: st.info(r)
     else:
-        st.write("Your bibliography is currently empty.")
+        st.info("Your bibliography is empty.")
 
 # --- TAB 6: SMART AUDIT ---
 with tabs[5]:
     st.header("🔍 Smart Essay Audit")
-    up = st.file_uploader("Upload Essay (.docx)", type="docx")
-    if up and st.button("Run Audit"):
+    up = st.file_uploader("Upload .docx", type="docx")
+    if up and st.button("Audit"):
         doc = Document(up)
         clean_bib = [lht.clean_text(b) for b in st.session_state.bibliography]
         results = []
         for i, p in enumerate(doc.paragraphs):
             cites = re.findall(r'\(([^)]{2,100}?\d{4}[^)]{0,50}?)\)', p.text)
             for c in cites:
-                match = any(lht.clean_text(c) in cb or cb in lht.clean_text(c) for cb in clean_bib)
-                results.append({"Para": i+1, "Citation": f"({c})", "Status": "✅" if match else "⚠️"})
+                clean_cite = lht.clean_text(c)
+                matched = any(clean_cite in cb or cb in clean_cite for cb in clean_bib if cb)
+                feedback = "Reference verified." if matched else "⚠️ Missing from Bibliography."
+                if '"' in p.text and not any(x in c.lower() for x in ["p.", "page"]):
+                    feedback = "⚠️ Quote detected: Missing page number (p. X)."
+                    matched = False
+                results.append({"Para": i+1, "Citation": f"({c})", "Status": "✅" if matched else "❌", "Feedback": feedback})
         st.table(results)
 
 # --- TAB 7: GLOSSARY ---
 with tabs[6]:
     st.header("📚 Academic Glossary")
     st.markdown("""
-    **Plagiarism:** Presenting someone else's work as your own.
-    
-    **Paraphrasing:** Rewriting ideas in your own words. (Still needs a citation!)
-    
-    **Secondary Citation:** Citing a work mentioned in another work (e.g., Smith cited in Jones).
-    
-    **Direct Quote:** Exact words from a source. Requires "quotation marks" and a page number.
+    **Plagiarism:** Using ideas without credit.  
+    **Paraphrase:** Writing in your own words.  
+    **Direct Quote:** Exact words (needs "marks" and page numbers).  
+    **Secondary Citation:** Citing a source mentioned in another source.
     """)
