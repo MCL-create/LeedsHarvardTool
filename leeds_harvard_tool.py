@@ -2,7 +2,7 @@ import requests
 import re
 from bs4 import BeautifulSoup
 
-# --- MCL MASTER CORRECTION MAP ---
+# --- MCL MASTER CORRECTION MAP (Refined Formatting) ---
 GOLD_STANDARD = {
     "bee": "Bee, H. and Boyd, D. 2002. Life span development. 3rd ed. London: Allyn and Bacon.",
     "sssc": "Scottish Social Services Council. 2024. SSSC Codes of Practice for Social Service Workers and Employers. [Online]. [Accessed 16 Jan 2026]. Available from: https://www.sssc.uk.com",
@@ -27,23 +27,23 @@ def apply_one_click_corrections(current_bib):
                 corrected_bib.append(gold_ref)
                 match_found = True
                 break
-        if not match_found:
-            corrected_bib.append(entry)
+        if not match_found: corrected_bib.append(entry)
     return list(set(corrected_bib))
 
-# Refactored to follow: Family name, INITIAL(S). Year. Title. Place: Publisher.
-def generate_book_reference(a, y, t, p, ed="", ser="", vol=""):
+def generate_book_reference(a, y, t, p, ed="", ser="", vol="", trans="", edt=""):
+    # Format: Family name, INITIAL(S). Year. Title.
     ref = f"{a}. {y}. {t}."
     if ser: ref += f" {ser},"
     if vol: ref += f" Vol {vol}."
     if ed: ref += f" {ed}."
+    if edt: ref += f" {edt} ed."
+    if trans: ref += f" Translated by {trans}."
     ref += f" {p}."
     return ref
 
 def generate_web_reference(a, y, t, u, d):
     return f"{a}. {y}. {t}. [Online]. [Accessed {d}]. Available from: {u}"
 
-# Standard API search functions
 def search_books(query):
     url = f"https://www.googleapis.com/books/v1/volumes?q={query}&maxResults=3"
     try:
