@@ -2,7 +2,7 @@ import requests
 import re
 from bs4 import BeautifulSoup
 
-# --- MCL MASTER CORRECTION MAP (Preserved & Verified) ---
+# --- MCL MASTER CORRECTION MAP (Verified Gold Standards) ---
 GOLD_STANDARD = {
     "bee": "Bee, H. and Boyd, D. 2002. Life span development. 3rd ed. London: Allyn and Bacon.",
     "sssc": "Scottish Social Services Council. 2024. SSSC Codes of Practice for Social Service Workers and Employers. [Online]. [Accessed 16 Jan 2026]. Available from: https://www.sssc.uk.com",
