@@ -2,7 +2,7 @@ import requests
 import re
 from bs4 import BeautifulSoup
 
-# --- MCL MASTER CORRECTION MAP ---
+# --- MCL MASTER CORRECTION MAP (PRESERVED) ---
 GOLD_STANDARD = {
     "bee": "Bee, H. and Boyd, D. 2002. Life span development. 3rd ed. London: Allyn and Bacon.",
     "sssc": "Scottish Social Services Council. 2024. SSSC Codes of Practice for Social Service Workers and Employers. [Online]. [Accessed 16 Jan 2026]. Available from: https://www.sssc.uk.com",
@@ -30,6 +30,7 @@ def apply_one_click_corrections(current_bib):
         if not match_found: corrected_bib.append(entry)
     return list(set(corrected_bib))
 
+# Punctuation: Family, I. Year. Title. (No brackets around year)
 def generate_book_reference(a, y, t, p, ed="", ser="", vol=""):
     ref = f"{a}. {y}. {t}."
     if ser: ref += f" {ser},"
@@ -39,12 +40,12 @@ def generate_book_reference(a, y, t, p, ed="", ser="", vol=""):
     return ref
 
 def generate_journal_reference(a, y, t, j, v, i, p):
-    # Format: Family name, INITIAL(S). Year. Title of article. Journal Title. Vol (Issue), pp.pages.
     return f"{a}. {y}. {t}. {j}. {v} ({i}), pp.{p}."
 
 def generate_web_reference(a, y, t, u, d):
     return f"{a}. {y}. {t}. [Online]. [Accessed {d}]. Available from: {u}"
 
+# API Search Functions
 def search_books(query):
     url = f"https://www.googleapis.com/books/v1/volumes?q={query}&maxResults=3"
     try:
