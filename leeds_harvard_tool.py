@@ -2,9 +2,10 @@ import requests
 import re
 from bs4 import BeautifulSoup
 
+# --- MCL MASTER CORRECTION MAP ---
 GOLD_STANDARD = {
     "bee": "Bee, H. and Boyd, D. (2002) Life Span Development. 3rd ed. London: Allyn and Bacon.",
-    "sssc": "Scottish Social Services Council (2024) SSSC Codes of Practice for Social Service Workers and Employers. [Online]. [Accessed 13 Jan 2026]. Available from: https://www.sssc.uk.com",
+    "sssc": "Scottish Social Services Council (2024) SSSC Codes of Practice for Social Service Workers and Employers. [Online]. [Accessed 16 Jan 2026]. Available from: https://www.sssc.uk.com",
     "care review": "Independent Care Review (2021) The Independent Care Review: The Promise. Glasgow: Independent Care Review.",
     "standards": "Scottish Government (2018) Health and Social Care Standards: my support, my life. Edinburgh: Scottish Government.",
     "equality": "Great Britain (2010) Equality Act 2010. London: The Stationery Office.",
@@ -27,7 +28,8 @@ def apply_one_click_corrections(current_bib):
                 corrected_bib.append(gold_ref)
                 match_found = True
                 break
-        if not match_found: corrected_bib.append(entry)
+        if not match_found:
+            corrected_bib.append(entry)
     return list(set(corrected_bib))
 
 def search_books(query):
@@ -80,5 +82,5 @@ def scrape_website(url):
 
 def generate_book_reference(a, y, t, p): return f"{a} ({y}) {t}. {p}."
 def generate_journal_reference(a, y, t, j, v, i, p): return f"{a} ({y}) '{t}', {j}, {v}({i}), pp. {p}."
-def generate_web_reference(a, y, t, u, d): return f"{a} ({y}) {t}. [Online]. [Accessed {d}]. Available from: {u}"
+def generate_web_reference(a, y, t, u, d): return f"{a} ({y}) {t}. [Online]. [Accessed {d}). Available from: {u}"
 def get_sort_key(ref): return ref.lower()
