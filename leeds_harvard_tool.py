@@ -18,7 +18,7 @@ def clean_text(text):
     return re.sub(r'[^\w\s]', '', text).lower().strip()
 
 def extract_text_from_docx(file_stream):
-    """Restored: Extracts all text from uploaded .docx for the Audit."""
+    """Extracts text for the Audit to ensure citations are found."""
     try:
         return docx2txt.process(file_stream)
     except:
