@@ -1,12 +1,11 @@
 import requests
 import re
 from bs4 import BeautifulSoup
+import docx2txt
 
-# --- MCL MASTER CORRECTION MAP ---
+# --- GOLD STANDARDS (Preserved Scottish Context) ---
 GOLD_STANDARD = {
-    "bee": "Bee, H. and Boyd, D. 2002. Life span development. 3rd ed. London: Allyn and Bacon.",
-    "sssc": "Scottish Social Services Council. 2024. SSSC Codes of Practice for Social Service Workers and Employers. [Online]. [Accessed 16 Jan 2026]. Available from: https://www.sssc.uk.com",
-    "care review": "Independent Care Review. 2021. The Independent Care Review: The Promise. Glasgow: Independent Care Review.",
+    "sssc": "Scottish Social Services Council. 2024. SSSC Codes of Practice for Social Service Workers and Employers. [Online]. [Accessed 17 Jan 2026]. Available from: https://www.sssc.uk.com",
     "standards": "Scottish Government. 2018. Health and social care standards: my support, my life. Edinburgh: Scottish Government.",
     "equality": "Great Britain. 2010. Equality Act 2010. London: The Stationery Office.",
     "data protection": "Great Britain. 2018. Data Protection Act 2018. London: The Stationery Office.",
@@ -16,6 +15,13 @@ GOLD_STANDARD = {
 def clean_text(text):
     if not text: return ""
     return re.sub(r'[^\w\s]', '', text).lower().strip()
+
+def extract_text_from_docx(file_path):
+    """Reliable text extraction for the Smart Audit."""
+    try:
+        return docx2txt.process(file_path)
+    except Exception as e:
+        return f"Error reading file: {e}"
 
 def apply_one_click_corrections(current_bib):
     corrected_bib = []
@@ -30,13 +36,8 @@ def apply_one_click_corrections(current_bib):
         if not match_found: corrected_bib.append(entry)
     return list(set(corrected_bib))
 
-def generate_book_reference(a, y, t, p, ed="", ser="", vol=""):
-    ref = f"{a}. {y}. {t}."
-    if ser: ref += f" {ser},"
-    if vol: ref += f" Vol {vol}."
-    if ed: ref += f" {ed}."
-    ref += f" {p}."
-    return ref
+def generate_book_reference(a, y, t, p):
+    return f"{a}. {y}. {t}. {p}."
 
 def generate_journal_reference(a, y, t, j, v, i, p):
     return f"{a}. {y}. {t}. {j}. {v} ({i}), pp.{p}."
