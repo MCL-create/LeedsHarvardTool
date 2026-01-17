@@ -28,7 +28,7 @@ if os.path.exists("assets/Header.png"):
 
 tabs = st.tabs(["🏠 Guide", "📖 Book", "📰 Journal", "🌐 Website", "📋 Bibliography", "🔍 Smart Audit", "📚 Glossary"])
 
-# --- TAB 1: FULL GUIDE (Restored from image_d6812b.png) ---
+# --- TAB 1: FULL GUIDE (Restored) ---
 with tabs[0]:
     st.title("Leeds Harvard Referencing Guide")
     st.markdown("""
@@ -50,12 +50,11 @@ with tabs[0]:
     buf_g = BytesIO(); doc_g.save(buf_g)
     st.download_button("🖨️ Download Printable Guide (.docx)", buf_g.getvalue(), "MCL_Reference_Guide.docx")
 
-# --- TAB 6: SMART AUDIT (Restored from image_3dcbaa.png) ---
+# --- TAB 6: SMART AUDIT (Fixed) ---
 with tabs[5]:
     st.header("🔍 Smart Essay Audit")
     up = st.file_uploader("Upload Essay (.docx)", type="docx")
     if up:
-        # Use the specific extractor from lht
         text = lht.extract_text_from_docx(up)
         clean_bib = [lht.clean_text(b) for b in st.session_state.bibliography]
         paragraphs = text.split('\n\n')
@@ -67,14 +66,13 @@ with tabs[5]:
                 matched = any(clean_cite in cb or cb in clean_cite for cb in clean_bib if cb)
                 status = "✅" if matched else "❌"
                 feedback = "Verified" if matched else "⚠️ Missing from Bibliography"
-                # Quote Detection
                 if '"' in p and not any(x in c.lower() for x in ["p.", "page"]):
                     feedback = "⚠️ Quote: Missing page number (p. X)"; status = "❌"
                 results.append({"Para": i+1, "Citation": f"({c})", "Status": status, "Feedback": feedback})
         if results:
             st.table(results)
 
-# --- TAB 7: FULL GLOSSARY (Restored from image_d60fce.png) ---
+# --- TAB 7: FULL GLOSSARY (Full Restoration) ---
 with tabs[6]:
     st.header("Glossary of Key Academic Writing Terms")
     st.markdown("""
@@ -83,9 +81,9 @@ with tabs[6]:
         <p><strong>Definition:</strong> Plagiarism is the act of presenting another person’s ideas, words, data, or creative work as one’s own without appropriate acknowledgement. It may be intentional or unintentional and includes copying text verbatim, closely imitating sentence structure, or submitting work produced by others, including artificial intelligence tools, without declaration (QAA, 2019).</p>
         <p>In the Scottish academic and professional learning context, plagiarism is consistent with the <strong>SSSC Codes of Practice (2024)</strong>, which emphasise honesty, integrity and responsibility in professional conduct.</p>
         <div class="example-box">
-            <strong>Original source:</strong> “Assessment feedback plays a critical role...” (Nicol and Macfarlane‐Dick, 2006).<br>
+            <strong>Original source:</strong> “Assessment feedback plays a critical role in supporting learner development and academic confidence” (Nicol and Macfarlane‐Dick, 2006).<br>
             <strong>Plagiarised version:</strong> Assessment feedback plays a critical role in supporting learner development and academic confidence.<br>
-            <em>Verdict: This is plagiarism because it is copied exactly with no quotation marks or citation.</em>
+            <em>Verdict: This is plagiarism because the sentence is copied exactly with no quotation marks or citation.</em>
         </div>
 
         <div class="glossary-term">Paraphrasing</div>
@@ -95,9 +93,9 @@ with tabs[6]:
         </div>
 
         <div class="glossary-term">Direct Quote</div>
-        <p><strong>Definition:</strong> A direct quote uses the exact words of an author, enclosed within quotation marks, and must always include a citation with page number (Cottrell, 2019).</p>
+        <p><strong>Definition:</strong> A direct quote uses the exact words of an author, enclosed within quotation marks, and must always include a citation with page number where available (Cottrell, 2019).</p>
         <div class="example-box">
-            “Nicol and Macfarlane-Dick (2006, p. 205) argue that ‘feedback is a powerful influence’.”
+            <strong>Example:</strong> “Nicol and Macfarlane-Dick (2006, p. 205) argue that ‘feedback is a powerful influence on student learning and achievement’.”
         </div>
     </div>
     """, unsafe_allow_html=True)
