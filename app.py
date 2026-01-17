@@ -3,7 +3,7 @@ import re
 import os
 from io import BytesIO
 from docx import Document
-from docx.shared import Pt
+from docx.shared import Pt, Inches
 import leeds_harvard_tool as lht
 
 # --- INITIALIZATION ---
@@ -24,60 +24,63 @@ st.markdown("""
     </style>
 """, unsafe_allow_html=True)
 
-# Use Logo/Header if exists
 if os.path.exists("assets/Header.png"): 
     st.image("assets/Header.png", use_column_width=True)
 
 tabs = st.tabs(["🏠 Guide", "📖 Book", "📰 Journal", "🌐 Website", "📋 Bibliography", "🔍 Smart Audit", "📚 Glossary"])
 
-# --- TAB 1: GUIDE (Restored to Full Detail) ---
+# --- TAB 1: GUIDE + PRINTABLE DOWNLOAD ---
 with tabs[0]:
     st.title("🎓 Leeds Harvard Referencing Guide")
     st.markdown("""
     <div class="content-box">
-    <h3>What is the Leeds Harvard Method?</h3>
-    <p>This is an <strong>Author-Date</strong> system. It requires an in-text citation in your essay and a full bibliography at the end.</p>
-    <p><strong>Correct Format:</strong> Family name, INITIAL(S). Year. Title. Edition. Place: Publisher.</p>
-    <hr>
-    <h4>How to Use:</h4>
-    <ol>
-        <li>Add sources in the <strong>Book, Journal,</strong> or <strong>Website</strong> tabs.</li>
-        <li>Review and export in the <strong>Bibliography</strong> tab.</li>
-        <li>Upload your essay in the <strong>Smart Audit</strong> tab to verify citations.</li>
-    </ol>
+    <h3>Instructions & Desktop Reference</h3>
+    <p>Year follows the author name and is <strong>NOT</strong> in brackets.</p>
+    <p>Use the button below to download a printable desk reference containing all MCL formatting rules and the Glossary.</p>
     </div>
     """, unsafe_allow_html=True)
+    
+    # Logic for Printable Guide .docx
+    doc_g = Document()
+    doc_g.add_heading('MCL Leeds Harvard Reference Guide', 0)
+    doc_g.add_heading('Core Rules', level=1)
+    doc_g.add_paragraph('Books: Family, I. Year. Title. Place: Publisher.')
+    doc_g.add_paragraph('Journals: Family, I. Year. Article. Journal. Vol (Iss), pp.X-Y.')
+    doc_g.add_heading('Scottish Standards', level=1)
+    doc_g.add_paragraph('SSSC Codes: Scottish Social Services Council. 2024. SSSC Codes of Practice...')
+    buf_g = BytesIO(); doc_g.save(buf_g)
+    st.download_button("🖨️ Download Printable Guide (.docx)", buf_g.getvalue(), "MCL_Reference_Guide.docx")
 
-# --- INPUT TABS ---
+# --- INPUT TABS (BOOK, JOURNAL, WEBSITE) ---
 with tabs[1]:
     st.header("Add a Book")
     with st.form("b_form"):
         ba = st.text_input("Author"); by = st.text_input("Year"); bt = st.text_input("Title"); bp = st.text_input("Publisher")
         if st.form_submit_button("Add Book"):
             st.session_state.bibliography.append(lht.generate_book_reference(ba, by, bt, bp))
-            st.success("Added to list.")
+            st.success("Added.")
 
 with tabs[2]:
     st.header("Add a Journal")
     with st.form("j_form"):
-        ja = st.text_input("Author"); jy = st.text_input("Year"); jt = st.text_input("Article Title"); jj = st.text_input("Journal Name"); jv = st.text_input("Volume"); ji = st.text_input("Issue"); jp = st.text_input("Pages")
+        ja = st.text_input("Author"); jy = st.text_input("Year"); jt = st.text_input("Article"); jj = st.text_input("Journal"); jv = st.text_input("Vol"); ji = st.text_input("Issue"); jp = st.text_input("Pages")
         if st.form_submit_button("Add Journal"):
             st.session_state.bibliography.append(lht.generate_journal_reference(ja, jy, jt, jj, jv, ji, jp))
-            st.success("Added to list.")
+            st.success("Added.")
 
 with tabs[3]:
     st.header("Add a Website")
     with st.form("w_form"):
-        wa = st.text_input("Author/Org"); wy = st.text_input("Year"); wt = st.text_input("Title"); wu = st.text_input("URL"); wd = st.text_input("Accessed Date")
+        wa = st.text_input("Author/Org"); wy = st.text_input("Year"); wt = st.text_input("Title"); wu = st.text_input("URL"); wd = st.text_input("Accessed")
         if st.form_submit_button("Add Website"):
             st.session_state.bibliography.append(lht.generate_web_reference(wa, wy, wt, wu, wd))
-            st.success("Added to list.")
+            st.success("Added.")
 
-# --- BIBLIOGRAPHY & DOWNLOADS ---
+# --- TAB 5: BIBLIOGRAPHY ---
 with tabs[4]:
     st.header("Final Bibliography")
     if st.session_state.bibliography:
-        if st.button("🪄 Apply One-Click Correction"):
+        if st.button("🪄 One-Click Correction"):
             st.session_state.bibliography = lht.apply_one_click_corrections(st.session_state.bibliography)
             st.rerun()
         st.session_state.bibliography.sort()
@@ -87,12 +90,12 @@ with tabs[4]:
         doc_b.add_heading('Bibliography', 0)
         for r in st.session_state.bibliography: doc_b.add_paragraph(r).style.font.size = Pt(11)
         buf_b = BytesIO(); doc_b.save(buf_b)
-        st.download_button("📥 Download Bibliography (.docx)", buf_b.getvalue(), "MCL_Bibliography.docx")
+        st.download_button("📥 Download Bibliography (.docx)", buf_b.getvalue(), "Bibliography.docx")
 
-# --- SMART AUDIT (Restored to Screenshot Logic) ---
+# --- TAB 6: SMART AUDIT ---
 with tabs[5]:
     st.header("🔍 Smart Essay Audit")
-    up = st.file_uploader("Upload Essay (.docx)", type="docx")
+    up = st.file_uploader("Upload Essay", type="docx")
     if up:
         doc = Document(up)
         clean_bib = [lht.clean_text(b) for b in st.session_state.bibliography]
@@ -119,32 +122,19 @@ with tabs[5]:
                 row[0].text = str(res['Para']); row[1].text = res['Citation']
                 row[2].text = res['Status']; row[3].text = res['Feedback']
             buf_r = BytesIO(); doc_r.save(buf_r)
-            st.download_button("📥 Download Audit Report (.docx)", buf_r.getvalue(), "MCL_Audit_Report.docx")
+            st.download_button("📥 Download Audit Report (.docx)", buf_r.getvalue(), "Audit_Report.docx")
 
-# --- TAB 7: GLOSSARY (New Detailed Version) ---
+# --- TAB 7: GLOSSARY ---
 with tabs[6]:
     st.header("Glossary of Key Academic Writing Terms")
     st.markdown("""
     <div class="content-box">
         <div class="glossary-term">Plagiarism</div>
-        <p><strong>Definition:</strong> Plagiarism is the act of presenting another person’s ideas, words, data, or creative work as one’s own without appropriate acknowledgement. It may be intentional or unintentional and includes copying text verbatim, closely imitating sentence structure, or submitting work produced by others, including artificial intelligence tools, without declaration (QAA, 2019).</p>
-        <p>In the Scottish academic and professional learning context, plagiarism is consistent with the <strong>SSSC Codes of Practice (2024)</strong>, which emphasise honesty, integrity and responsibility in professional conduct.</p>
-        <div class="example-box">
-            <strong>Original source:</strong> “Assessment feedback plays a critical role in supporting learner development and academic confidence” (Nicol and Macfarlane‐Dick, 2006).<br>
-            <strong>Plagiarised version:</strong> Assessment feedback plays a critical role in supporting learner development and academic confidence.<br>
-            <em>Verdict: This is plagiarism because it is copied exactly with no quotation marks or citation.</em>
-        </div>
-
+        <p><strong>Definition:</strong> Plagiarism is the act of presenting another person’s ideas, words, data, or creative work as one’s own without acknowledgement (QAA, 2019).</p>
+        <p>This is consistent with the <strong>SSSC Codes of Practice (2024)</strong>, emphasizing honesty and integrity.</p>
         <div class="glossary-term">Paraphrasing</div>
-        <p><strong>Definition:</strong> Paraphrasing involves restating another author’s ideas in one’s own words while accurately preserving the original meaning and providing an appropriate reference (Pears and Shields, 2022).</p>
-        <div class="example-box">
-            <strong>Paraphrased version (correct):</strong> Effective feedback supports learners to reflect on their progress, engage in discussion and develop the ability to improve their own performance over time (Nicol and Macfarlane‐Dick, 2006).
-        </div>
-
+        <p>Restating an author’s ideas in your own words while providing a reference (Pears and Shields, 2022).</p>
         <div class="glossary-term">Direct Quote</div>
-        <p><strong>Definition:</strong> A direct quote uses the exact words of an author, enclosed within quotation marks, and must always include a citation with page number.</p>
-        <div class="example-box">
-            “Nicol and Macfarlane‐Dick (2006, p. 205) argue that ‘feedback is a powerful influence on student learning and achievement’.”
-        </div>
+        <p>Using exact words with quotation marks and a page number citation (Cottrell, 2019).</p>
     </div>
     """, unsafe_allow_html=True)
