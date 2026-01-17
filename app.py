@@ -23,15 +23,51 @@ st.markdown("""
 
 tabs = st.tabs(["🏠 Guide", "📖 Book", "📰 Journal", "🌐 Website", "📋 Bibliography", "🔍 Smart Audit", "📚 Glossary"])
 
-# --- TAB 1: GUIDE ---
+# --- TAB 1: FULL GUIDE (EXPANDED EXPLANATION) ---
 with tabs[0]:
     st.title("🎓 Leeds Harvard Referencing Guide")
-    st.markdown('<div class="content-box"><h3>Instructions</h3><p>The Leeds Harvard system is an <strong>Author-Date</strong> method.</p></div>', unsafe_allow_html=True)
-    doc_g = Document(); doc_g.add_heading('MCL Reference Guide', 0)
-    doc_g.add_paragraph('Core Formatting: Family name, INITIAL(S). Year. Title. Place: Publisher.')
-    doc_g.add_paragraph('Book Example: Smith, J. (2022) Understanding professional practice. London: Routledge.')
+    st.markdown("""
+    <div class="content-box">
+    <h3>What is the Leeds Harvard Method?</h3>
+    <p>The Leeds Harvard system is an <strong>Author-Date</strong> referencing style. This means that every time you refer to someone else's work in your essay, you must include the author's name and the year of publication.</p>
+    
+    <h4>1. In-text Citations</h4>
+    <p>In-text citations are used within the body of your work. They usually consist of the author's surname and the year of publication, for example: <em>(Smith, 2022)</em>.</p>
+    <ul>
+        <li><strong>Direct Quotes:</strong> If you are using an exact quote, you must also include a page number: <em>(Smith, 2022, p. 15)</em>.</li>
+        <li><strong>Paraphrasing:</strong> If you are putting an idea into your own words, only the name and year are required.</li>
+    </ul>
+
+    <h4>2. The Reference List (Bibliography)</h4>
+    <p>At the end of your work, you must provide a full list of all the sources you have cited. This list must be in <strong>alphabetical order</strong> by the author's surname. Key features of the Leeds Harvard list include:</p>
+    <ul>
+        <li><strong>No brackets for the year:</strong> In the final bibliography, the year follows the author without brackets (e.g., Smith, J. 2022).</li>
+        <li><strong>Italics:</strong> The title of the book, the name of the journal, or the title of the website must be in <em>italics</em>.</li>
+        <li><strong>Consistency:</strong> Punctuation and spacing must be consistent throughout the entire list.</li>
+    </ul>
+
+    <hr>
+    <h3>Quick Start Instructions</h3>
+    <ol>
+        <li>Enter source details in the <strong>Book, Journal,</strong> or <strong>Website</strong> tabs.</li>
+        <li>Review and alphabetise your list in the <strong>Bibliography</strong> tab.</li>
+        <li>Use the <strong>Smart Audit</strong> tool to ensure your essay citations match your list.</li>
+    </ol>
+    </div>
+    """, unsafe_allow_html=True)
+    
+    # Updated Printable Guide with full explanation
+    doc_g = Document()
+    doc_g.add_heading('Leeds Harvard Referencing: Full Guide', 0)
+    doc_g.add_heading('Core Principles', level=1)
+    doc_g.add_paragraph('Leeds Harvard uses an Author-Date system for in-text citations and a comprehensive Reference List at the end.')
+    doc_g.add_heading('In-text Citations', level=2)
+    doc_g.add_paragraph('General: (Author, Year) | Quote: (Author, Year, p. X)')
+    doc_g.add_heading('Reference List Formatting', level=2)
+    doc_g.add_paragraph('Format: Family name, INITIAL(S). Year. Title. Edition. Place: Publisher.')
+    
     buf_g = BytesIO(); doc_g.save(buf_g)
-    st.download_button("🖨️ Download Printable Guide (.docx)", buf_g.getvalue(), "MCL_Reference_Guide.docx")
+    st.download_button("🖨️ Download Full Printable Guide (.docx)", buf_g.getvalue(), "Leeds_Harvard_Full_Guide.docx")
 
 # --- TAB 2: BOOK ---
 with tabs[1]:
