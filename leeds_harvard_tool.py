@@ -16,7 +16,6 @@ def clean_text(text):
     return re.sub(r'[^\w\s]', '', text).lower().strip()
 
 def extract_text_from_docx(file_stream):
-    """Essential for the Smart Audit to read essay content."""
     try:
         return docx2txt.process(file_stream)
     except:
