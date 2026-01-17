@@ -1,11 +1,9 @@
-import requests
 import re
-from bs4 import BeautifulSoup
 import docx2txt
 
-# --- GOLD STANDARDS (Scottish Legislation & SSSC 2024) ---
+# --- GOLD STANDARDS (Scottish Legislation & SSSC) ---
 GOLD_STANDARD = {
-    "sssc": "Scottish Social Services Council. 2024. SSSC Codes of Practice for Social Service Workers and Employers. [Online]. [Accessed 17 Jan 2026]. Available from: https://www.sssc.uk.com",
+    "sssc": "Scottish Social Services Council. 2024. SSSC Codes of practice for social service workers and employers. [Online]. [Accessed 17 Jan 2026]. Available from: https://www.sssc.uk.com",
     "care review": "Independent Care Review. 2021. The Independent Care Review: The Promise. Glasgow: Independent Care Review.",
     "standards": "Scottish Government. 2018. Health and social care standards: my support, my life. Edinburgh: Scottish Government.",
     "equality": "Great Britain. 2010. Equality Act 2010. London: The Stationery Office.",
@@ -18,7 +16,7 @@ def clean_text(text):
     return re.sub(r'[^\w\s]', '', text).lower().strip()
 
 def extract_text_from_docx(file_stream):
-    """Extracts text for the Audit to ensure citations are found."""
+    """Restored: Extracts all text for the Smart Audit logic."""
     try:
         return docx2txt.process(file_stream)
     except:
