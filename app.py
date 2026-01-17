@@ -20,6 +20,8 @@ st.markdown("""
     .example-box { background-color: #f9f9f9; padding: 15px; border: 1px dashed #009688; border-radius: 5px; }
     </style>
 """, unsafe_allow_html=True)
+if os.path.exists("assets/Header.png"): 
+    st.image("assets/Header.png", use_column_width=True)
 
 tabs = st.tabs(["🏠 Guide", "📖 Book", "📰 Journal", "🌐 Website", "📋 Bibliography", "🔍 Smart Audit", "📚 Glossary"])
 
