@@ -3,7 +3,6 @@ import re
 import os
 from io import BytesIO
 from docx import Document
-from docx.shared import Pt
 import leeds_harvard_tool as lht
 
 # --- INITIALIZATION ---
@@ -21,7 +20,7 @@ st.markdown("""
     .content-box { background-color: white; padding: 25px; border-radius: 10px; border-left: 5px solid #009688; margin-bottom: 20px; }
     .glossary-term { color: #009688; font-weight: bold; font-size: 1.4em; margin-top: 25px; border-bottom: 1px solid #eee; }
     .example-box { background-color: #f1f8f7; padding: 15px; border-radius: 5px; border: 1px dashed #009688; margin-top: 10px; }
-    .citation-ex { font-family: monospace; background-color: #f9f9f9; padding: 5px; border-radius: 3px; display: block; margin-bottom: 5px; }
+    .citation-ex { font-family: monospace; background-color: #f9f9f9; padding: 5px; border-radius: 3px; display: block; margin-bottom: 5px; border: 1px solid #ddd; }
     </style>
 """, unsafe_allow_html=True)
 
@@ -30,14 +29,12 @@ if os.path.exists("assets/Header.png"):
 
 tabs = st.tabs(["🏠 Guide", "📖 Book", "📰 Journal", "🌐 Website", "📋 Bibliography", "🔍 Smart Audit", "📚 Glossary"])
 
-# --- TAB 1: FULL GUIDE (Restored from image_3ec78a.jpg & image_d74ee8.png) ---
+# --- TAB 1: GUIDE (Restored instructions & examples) ---
 with tabs[0]:
     st.title("🎓 Leeds Harvard Referencing Guide")
     st.markdown("""
     <div class="content-box">
-    <h3>Instructions</h3>
-    <p>The Leeds Harvard system is an <strong>Author-Date</strong> method. The year follows the author and is <strong>not</strong> enclosed in brackets in the bibliography.</p>
-    <h4>Quick Start:</h4>
+    <h3>Quick Start:</h3>
     <ol>
         <li>Add sources in the <strong>Book, Journal,</strong> or <strong>Website</strong> tabs.</li>
         <li>Review your list in the <strong>Bibliography</strong> tab and use 'One-Click Correction'.</li>
@@ -48,38 +45,28 @@ with tabs[0]:
     
     st.subheader("Reference Examples")
     st.markdown("""
-    <strong>Book example:</strong>
-    <span class="citation-ex">Smith, J. 2022. Understanding professional practice. 2nd edn. London: Routledge.</span>
-    <em>In-text:</em> (Smith, 2022)
-    <br><br>
-    <strong>Journal article example:</strong>
-    <span class="citation-ex">Brown, L. and Green, T. 2023. ‘Developing reflective capacity in vocational education’, Journal of Education and Work, 36(4), pp. 415–431.</span>
-    <em>In-text:</em> (Brown and Green, 2023)
-    <br><br>
-    <strong>Website (Scottish Context) example:</strong>
-    <span class="citation-ex">Scottish Social Services Council. 2024. Codes of practice for social service workers and employers. Available at: https://www.sssc.uk.com/codes-of-practice (Accessed: 13 January 2026).</span>
-    <em>In-text:</em> (Scottish Social Services Council, 2024)
+    <div class="content-box">
+    <strong>Book example:</strong> <em>Smith, J. (2022) Understanding professional practice. 2nd edn. London: Routledge.</em><br>
+    <strong>Journal example:</strong> <em>Brown, L. and Green, T. (2023) ‘Developing reflective capacity’, Journal of Education, 36(4), pp. 415–431.</em>
+    </div>
     """, unsafe_allow_html=True)
 
-    # Printable Guide .docx Generation
-    doc_g = Document()
-    doc_g.add_heading('MCL Reference Guide', 0)
-    doc_g.add_paragraph('Core Formatting: Family name, INITIAL(S). Year. Title. Place: Publisher.')
+    doc_g = Document(); doc_g.add_heading('MCL Reference Guide', 0)
     buf_g = BytesIO(); doc_g.save(buf_g)
     st.download_button("🖨️ Download Printable Guide (.docx)", buf_g.getvalue(), "MCL_Reference_Guide.docx")
 
-# --- DATA INPUT TABS (Functioning with partial input check) ---
+# --- DATA INPUT TABS (Functioning with Italics) ---
 with tabs[1]:
     st.header("Add a Book")
     with st.form("b_form"):
         ba = st.text_input("Author"); by = st.text_input("Year"); bt = st.text_input("Title"); bp = st.text_input("Publisher")
         if st.form_submit_button("Add Book"):
-            if not ba or not by: st.warning("Please provide at least Author and Year.")
+            if not ba or not by: st.warning("Please provide Author and Year.")
             else:
                 st.session_state.bibliography.append(lht.generate_book_reference(ba, by, bt, bp))
-                st.success("Added to bibliography.")
+                st.success("Added with italics.")
 
-# --- TAB 5: BIBLIOGRAPHY (Alpha-sort & Export) ---
+# --- TAB 5: BIBLIOGRAPHY (Alpha-sort & Italicized Export) ---
 with tabs[4]:
     st.header("📋 Your Bibliography")
     if st.session_state.bibliography:
@@ -87,42 +74,48 @@ with tabs[4]:
             st.session_state.bibliography = lht.apply_one_click_corrections(st.session_state.bibliography)
             st.rerun()
         st.session_state.bibliography.sort()
-        for r in st.session_state.bibliography: st.info(r)
+        for r in st.session_state.bibliography:
+            st.markdown(f"- {r}", unsafe_allow_html=True)
         
-        doc_b = Document()
-        doc_b.add_heading('Bibliography', 0)
-        for r in st.session_state.bibliography: doc_b.add_paragraph(r)
+        doc_b = Document(); doc_b.add_heading('Bibliography', 0)
+        for r in st.session_state.bibliography:
+            p = doc_b.add_paragraph()
+            parts = re.split(r'(<i>.*?</i>)', r)
+            for part in parts:
+                if part.startswith('<i>'):
+                    p.add_run(part.replace('<i>','').replace('</i>','')).italic = True
+                else:
+                    p.add_run(part)
         buf_b = BytesIO(); doc_b.save(buf_b)
         st.download_button("📥 Download Bibliography (.docx)", buf_b.getvalue(), "MCL_Bibliography.docx")
 
-# --- TAB 6: SMART AUDIT (Missed Reference Scan & Report Export) ---
+# --- TAB 6: SMART AUDIT (Review & Identification) ---
 with tabs[5]:
     st.header("🔍 Smart Essay Audit")
     up = st.file_uploader("Upload Essay (.docx)", type="docx")
     if up:
         text = lht.extract_text_from_docx(up)
         clean_bib = [lht.clean_text(b) for b in st.session_state.bibliography]
-        paragraphs = text.split('\n\n')
+        paragraphs = [p.strip() for p in text.split('\n\n') if p.strip()]
         results = []
         for i, p in enumerate(paragraphs):
             cites = re.findall(r'\(([^)]{2,100}?\d{4}[^)]{0,50}?)\)', p)
             for c in cites:
                 clean_cite = lht.clean_text(c)
-                matched = any(clean_cite in cb or cb in clean_cite for cb in clean_bib if cb)
+                matched = any(clean_cite in cb for cb in clean_bib if cb)
                 status = "✅" if matched else "❌"
                 feedback = "Verified" if matched else "⚠️ Missing from Bibliography"
                 if '"' in p and not any(x in c.lower() for x in ["p.", "page"]):
-                    feedback = "⚠️ Quote Error: Missing page number (p. X)"; status = "❌"
+                    feedback = "⚠️ Quote: Missing page number (p. X)"; status = "❌"
                 results.append({"Para": i+1, "Citation": f"({c})", "Status": status, "Feedback": feedback})
         if results:
             st.table(results)
-            # Export Audit Report
-            doc_r = Document(); doc_r.add_heading('Audit Report', 0)
+            doc_r = Document(); doc_r.add_heading('Audit Narrative Report', 0)
             for res in results: doc_r.add_paragraph(f"Para {res['Para']}: {res['Citation']} - {res['Feedback']}")
             buf_r = BytesIO(); doc_r.save(buf_r)
-            st.download_button("📊 Download Audit Report (.docx)", buf_r.getvalue(), "Audit_Report.docx")
+            st.download_button("📊 Download Audit Report (.docx)", buf_r.getvalue(), "Audit_Narrative_Report.docx")
 
-# --- TAB 7: FULL GLOSSARY (Restored from image_d60fce.png) ---
+# --- TAB 7: GLOSSARY (Full Restored SSSC/QAA Text) ---
 with tabs[6]:
     st.header("Glossary of Key Academic Writing Terms")
     st.markdown("""
@@ -131,21 +124,10 @@ with tabs[6]:
         <p><strong>Definition:</strong> Plagiarism is the act of presenting another person’s ideas, words, data, or creative work as one’s own without appropriate acknowledgement (QAA, 2019).</p>
         <p>In the Scottish academic and professional learning context, plagiarism is consistent with the <strong>SSSC Codes of Practice (2024)</strong>, which emphasise honesty, integrity and responsibility in professional conduct.</p>
         <div class="example-box">
-            <strong>Original source:</strong> “Assessment feedback plays a critical role...” (Nicol and Macfarlane-Dick, 2006).<br>
-            <strong>Plagiarised version:</strong> Assessment feedback plays a critical role in supporting learner development and academic confidence.<br>
-            <em>Verdict: This is plagiarism because it is copied exactly with no quotation marks or citation.</em>
+            <strong>Original:</strong> “Assessment feedback plays a critical role...” (Nicol and Macfarlane-Dick, 2006).<br>
+            <strong>Verdict:</strong> Plagiarism if copied exactly with no quotation marks or citation.
         </div>
-
-        <div class="glossary-term">Paraphrasing</div>
-        <p><strong>Definition:</strong> Paraphrasing involves restating another author’s ideas in one’s own words while accurately preserving the original meaning (Pears and Shields, 2022).</p>
-        <div class="example-box">
-            <strong>Correct Paraphrase:</strong> Effective feedback supports learners to reflect on their progress, engage in discussion and develop the ability to improve their own performance over time (Nicol and Macfarlane-Dick, 2006).
-        </div>
-
         <div class="glossary-term">Direct Quote</div>
-        <p><strong>Definition:</strong> A direct quote uses the exact words of an author, enclosed within quotation marks, and must always include a citation with page number where available (Cottrell, 2019).</p>
-        <div class="example-box">
-            “Nicol and Macfarlane-Dick (2006, p. 205) argue that ‘feedback is a powerful influence on student learning and achievement’.”
-        </div>
+        <p><strong>Definition:</strong> A direct quote uses exact words, enclosed in quotation marks, and must include a page number (Cottrell, 2019).</p>
     </div>
     """, unsafe_allow_html=True)
