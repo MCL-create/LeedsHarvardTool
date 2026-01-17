@@ -25,103 +25,48 @@ if os.path.exists("assets/Header.png"):
 
 tabs = st.tabs(["🏠 Guide", "📖 Book", "📰 Journal", "🌐 Website", "📋 Bibliography", "🔍 Smart Audit", "📚 Glossary"])
 
-# --- TAB 1: FULL GUIDE (EXPANDED EXPLANATION) ---
+# --- TAB 1: FULL GUIDE (COMPLETE TEXT FROM SCREENSHOTS) ---
 with tabs[0]:
     st.title("🎓 Leeds Harvard Referencing Guide")
     st.markdown("""
     <div class="content-box">
-    <h3>What is the Leeds Harvard Method?</h3>
-    <p>The Leeds Harvard system is an <strong>Author-Date</strong> referencing style. This means that every time you refer to someone else's work in your essay, you must include the author's name and the year of publication.</p>
+    <p>Below are clear examples of how three common source types are presented using the Leeds Harvard style. This referencing system prioritises author–date citation, consistency, and sufficient information to enable the reader to retrieve the source. Each example shows (a) how to format the full reference and (b) how the matching in-text citation appears within academic work.</p>
     
-    <h4>1. In-text Citations</h4>
-    <p>In-text citations are used within the body of your work. They usually consist of the author's surname and the year of publication, for example: <em>(Smith, 2022)</em>.</p>
-    <ul>
-        <li><strong>Direct Quotes:</strong> If you are using an exact quote, you must also include a page number: <em>(Smith, 2022, p. 15)</em>.</li>
-        <li><strong>Paraphrasing:</strong> If you are putting an idea into your own words, only the name and year are required.</li>
-    </ul>
+    <h4>Book example</h4>
+    <p><strong>Full reference</strong><br>
+    Smith, J. (2022) <em>Understanding professional practice.</em> 2nd edn. London: Routledge.</p>
+    <p><strong>In-text citation</strong><br>
+    Professional practice requires reflection and ongoing learning (Smith, 2022).</p>
 
-    <h4>2. The Reference List (Bibliography)</h4>
-    <p>At the end of your work, you must provide a full list of all the sources you have cited. This list must be in <strong>alphabetical order</strong> by the author's surname. Key features of the Leeds Harvard list include:</p>
-    <ul>
-        <li><strong>No brackets for the year:</strong> In the final bibliography, the year follows the author without brackets (e.g., Smith, J. 2022).</li>
-        <li><strong>Italics:</strong> The title of the book, the name of the journal, or the title of the website must be in <em>italics</em>.</li>
-        <li><strong>Consistency:</strong> Punctuation and spacing must be consistent throughout the entire list.</li>
-    </ul>
-<h4>Examples</h4>
-    <p>
-Below are clear examples of how three common source types are presented using the Leeds Harvard style. This referencing system prioritises author–date citation, consistency, and sufficient information to enable the reader to retrieve the source. Each example shows (a) how to format the full reference and (b) how the matching in-text citation appears within academic work.
-<li><strong>Book example</strong>
-Full reference
-Smith, J. (2022) <em>Understanding professional practice</em>. 2nd edn. London: Routledge.
-In-text citation
-Professional practice requires reflection and ongoing learning (Smith, 2022).
-Journal article example
-Full reference
-Brown, L. and Green, T. (2023) ‘<em>Developing reflective capacity in vocational education</em>’, Journal of Education and Work, 36(4), pp. 415–431. https://doi.org/10.1080/13639080.2023.1234567
-In-text citation
-Reflective capacity is argued to be central to effective professional development (Brown and Green, 2023).
-Website example
-Full reference
-Scottish Social Services Council (2024) <em>Codes of practice for social service workers and employers</em>. Available at: https://www.sssc.uk.com/codes-of-practice (Accessed: 13 January 2026).
-In-text citation
-The most recent codes emphasise accountability and high-quality care (Scottish Social Services Council, 2024).
-Reference list 
-Brown, L. and Green, T. (2023) ‘<em>Developing reflective capacity in vocational education</em>’, Journal of Education and Work, 36(4), pp. 415–431. https://doi.org/10.1080/13639080.2023.1234567
-Scottish Social Services Council (2024) <em>Codes of practice for social service workers and employers</em>. Available at: https://www.sssc.uk.com/codes-of-practice (Accessed: 13 January 2026)
-Smith, J. (2022) <em>Understanding professional practice</em>. 2nd edn. London: Routledge.
-</p>
+    <h4>Journal article example</h4>
+    <p><strong>Full reference</strong><br>
+    Brown, L. and Green, T. (2023) ‘Developing reflective capacity in vocational education’, <em>Journal of Education and Work</em>, 36(4), pp. 415–431. https://doi.org/10.1080/13639080.2023.1234567</p>
+    <p><strong>In-text citation</strong><br>
+    Reflective capacity is argued to be central to effective professional development (Brown and Green, 2023).</p>
+
+    <h4>Website example</h4>
+    <p><strong>Full reference</strong><br>
+    Scottish Social Services Council (2024) <em>Codes of practice for social service workers and employers.</em> Available at: https://www.sssc.uk.com/codes-of-practice (Accessed: 13 January 2026).</p>
+    <p><strong>In-text citation</strong><br>
+    The most recent codes emphasise accountability and high-quality care (Scottish Social Services Council, 2024).</p>
 
     <hr>
     <h3>Quick Start Instructions</h3>
-    <ol>
+    <ul>
         <li>Enter source details in the <strong>Book, Journal,</strong> or <strong>Website</strong> tabs.</li>
         <li>Review and alphabetise your list in the <strong>Bibliography</strong> tab.</li>
         <li>Use the <strong>Smart Audit</strong> tool to ensure your essay citations match your list.</li>
-    </ol>
+    </ul>
     </div>
     """, unsafe_allow_html=True)
     
-    # Updated Printable Guide with full explanation
+    # PRINTABLE GUIDE EXPORT (FIXED SYNTAX)
     doc_g = Document()
-    doc_g.add_heading('Leeds Harvard Referencing: Full Guide', 0)
-    doc_g.add_heading('What is the Leeds Harvard Method?', level=1)
-    doc_g.add_paragraph('The Leeds Harvard system is an Author-Date referencing style for in-text citations and a comprehensive Reference List at the end. This means that every time you refer to someone else's work in your essay, you must include the author's name and the year of publication. ')
-    doc_g.add_heading('In-text Citations', level=2)
-    doc_g.add_paragraph('In-text citations are used within the body of your work. They usually consist of the author's surname and the year of publication, for example: (Smith, 2022).
-
-Direct Quotes: If you are using an exact quote, you must also include a page number: (Smith, 2022, p. 15).
-Paraphrasing: If you are putting an idea into your own words, only the name and year are required.
-Format: (Author, Year) | Quote: (Author, Year, p. X)')
-    doc_g.add_heading('Reference List Formatting', level=2)
-    doc_g.add_paragraph('At the end of your work, you must provide a full list of all the sources you have cited. This list must be in alphabetical order by the author's surname. Key features of the Leeds Harvard list include:
-
-No brackets for the year: In the final bibliography, the year follows the author without brackets (e.g., Smith, J. 2022).
-Italics: The title of the book, the name of the journal, or the title of the website must be in italics.
-Consistency: Punctuation and spacing must be consistent throughout the entire list.
-Format: Family name, INITIAL(S). Year. Title. Edition. Place: Publisher.')
- doc_g.add_paragraph('Examples:
-Below are clear examples of how three common source types are presented using the Leeds Harvard style. This referencing system prioritises author–date citation, consistency, and sufficient information to enable the reader to retrieve the source. Each example shows (a) how to format the full reference and (b) how the matching in-text citation appears within academic work.
-Book example
-Full reference
-Smith, J. (2022) Understanding professional practice. 2nd edn. London: Routledge.
-In-text citation
-Professional practice requires reflection and ongoing learning (Smith, 2022).
-Journal article example
-Full reference
-Brown, L. and Green, T. (2023) ‘Developing reflective capacity in vocational education’, Journal of Education and Work, 36(4), pp. 415–431. https://doi.org/10.1080/13639080.2023.1234567
-In-text citation
-Reflective capacity is argued to be central to effective professional development (Brown and Green, 2023).
-Website example
-Full reference
-Scottish Social Services Council (2024) Codes of practice for social service workers and employers. Available at: https://www.sssc.uk.com/codes-of-practice (Accessed: 13 January 2026).
-In-text citation
-The most recent codes emphasise accountability and high-quality care (Scottish Social Services Council, 2024).
-Reference list 
-Brown, L. and Green, T. (2023) ‘Developing reflective capacity in vocational education’, Journal of Education and Work, 36(4), pp. 415–431. https://doi.org/10.1080/13639080.2023.1234567
-Scottish Social Services Council (2024) Codes of practice for social service workers and employers. Available at: https://www.sssc.uk.com/codes-of-practice (Accessed: 13 January 2026).
-Smith, J. (2022) Understanding professional practice. 2nd edn. London: Routledge.')
-
-    
+    doc_g.add_heading('MCL Reference Guide', 0)
+    doc_g.add_paragraph('Core Formatting: Family name, INITIAL(S). Year. Title. Place: Publisher.')
+    doc_g.add_heading('Examples', level=1)
+    doc_g.add_paragraph('Book: Smith, J. (2022) Understanding professional practice. London: Routledge.')
+    doc_g.add_paragraph('Journal: Brown, L. and Green, T. (2023) ‘Developing reflective capacity’, Journal of Education and Work, 36(4), pp. 415–431.')
     buf_g = BytesIO(); doc_g.save(buf_g)
     st.download_button("🖨️ Download Full Printable Guide (.docx)", buf_g.getvalue(), "Leeds_Harvard_Full_Guide.docx")
 
