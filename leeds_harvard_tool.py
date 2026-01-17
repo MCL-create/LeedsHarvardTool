@@ -3,9 +3,10 @@ import re
 from bs4 import BeautifulSoup
 import docx2txt
 
-# --- GOLD STANDARDS (Preserved Scottish Context) ---
+# --- GOLD STANDARDS (Scottish Legislation & SSSC 2024) ---
 GOLD_STANDARD = {
     "sssc": "Scottish Social Services Council. 2024. SSSC Codes of Practice for Social Service Workers and Employers. [Online]. [Accessed 17 Jan 2026]. Available from: https://www.sssc.uk.com",
+    "care review": "Independent Care Review. 2021. The Independent Care Review: The Promise. Glasgow: Independent Care Review.",
     "standards": "Scottish Government. 2018. Health and social care standards: my support, my life. Edinburgh: Scottish Government.",
     "equality": "Great Britain. 2010. Equality Act 2010. London: The Stationery Office.",
     "data protection": "Great Britain. 2018. Data Protection Act 2018. London: The Stationery Office.",
@@ -16,12 +17,12 @@ def clean_text(text):
     if not text: return ""
     return re.sub(r'[^\w\s]', '', text).lower().strip()
 
-def extract_text_from_docx(file_path):
-    """Reliable text extraction for the Smart Audit."""
+def extract_text_from_docx(file_stream):
+    """Restored: Extracts all text from uploaded .docx for the Audit."""
     try:
-        return docx2txt.process(file_path)
-    except Exception as e:
-        return f"Error reading file: {e}"
+        return docx2txt.process(file_stream)
+    except:
+        return ""
 
 def apply_one_click_corrections(current_bib):
     corrected_bib = []
