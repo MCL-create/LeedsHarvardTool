@@ -47,6 +47,29 @@ with tabs[0]:
         <li><strong>Italics:</strong> The title of the book, the name of the journal, or the title of the website must be in <em>italics</em>.</li>
         <li><strong>Consistency:</strong> Punctuation and spacing must be consistent throughout the entire list.</li>
     </ul>
+<h4>Examples</h4>
+    <p>
+Below are clear examples of how three common source types are presented using the Leeds Harvard style. This referencing system prioritises author–date citation, consistency, and sufficient information to enable the reader to retrieve the source. Each example shows (a) how to format the full reference and (b) how the matching in-text citation appears within academic work.
+<li><strong>Book example</strong>
+Full reference
+Smith, J. (2022) <em>Understanding professional practice</em>. 2nd edn. London: Routledge.
+In-text citation
+Professional practice requires reflection and ongoing learning (Smith, 2022).
+Journal article example
+Full reference
+Brown, L. and Green, T. (2023) ‘<em>Developing reflective capacity in vocational education</em>’, Journal of Education and Work, 36(4), pp. 415–431. https://doi.org/10.1080/13639080.2023.1234567
+In-text citation
+Reflective capacity is argued to be central to effective professional development (Brown and Green, 2023).
+Website example
+Full reference
+Scottish Social Services Council (2024) <em>Codes of practice for social service workers and employers</em>. Available at: https://www.sssc.uk.com/codes-of-practice (Accessed: 13 January 2026).
+In-text citation
+The most recent codes emphasise accountability and high-quality care (Scottish Social Services Council, 2024).
+Reference list 
+Brown, L. and Green, T. (2023) ‘<em>Developing reflective capacity in vocational education</em>’, Journal of Education and Work, 36(4), pp. 415–431. https://doi.org/10.1080/13639080.2023.1234567
+Scottish Social Services Council (2024) <em>Codes of practice for social service workers and employers</em>. Available at: https://www.sssc.uk.com/codes-of-practice (Accessed: 13 January 2026)
+Smith, J. (2022) <em>Understanding professional practice</em>. 2nd edn. London: Routledge.
+</p>
 
     <hr>
     <h3>Quick Start Instructions</h3>
@@ -61,12 +84,43 @@ with tabs[0]:
     # Updated Printable Guide with full explanation
     doc_g = Document()
     doc_g.add_heading('Leeds Harvard Referencing: Full Guide', 0)
-    doc_g.add_heading('Core Principles', level=1)
-    doc_g.add_paragraph('Leeds Harvard uses an Author-Date system for in-text citations and a comprehensive Reference List at the end.')
+    doc_g.add_heading('What is the Leeds Harvard Method?', level=1)
+    doc_g.add_paragraph('The Leeds Harvard system is an Author-Date referencing style for in-text citations and a comprehensive Reference List at the end. This means that every time you refer to someone else's work in your essay, you must include the author's name and the year of publication. ')
     doc_g.add_heading('In-text Citations', level=2)
-    doc_g.add_paragraph('General: (Author, Year) | Quote: (Author, Year, p. X)')
+    doc_g.add_paragraph('In-text citations are used within the body of your work. They usually consist of the author's surname and the year of publication, for example: (Smith, 2022).
+
+Direct Quotes: If you are using an exact quote, you must also include a page number: (Smith, 2022, p. 15).
+Paraphrasing: If you are putting an idea into your own words, only the name and year are required.
+Format: (Author, Year) | Quote: (Author, Year, p. X)')
     doc_g.add_heading('Reference List Formatting', level=2)
-    doc_g.add_paragraph('Format: Family name, INITIAL(S). Year. Title. Edition. Place: Publisher.')
+    doc_g.add_paragraph('At the end of your work, you must provide a full list of all the sources you have cited. This list must be in alphabetical order by the author's surname. Key features of the Leeds Harvard list include:
+
+No brackets for the year: In the final bibliography, the year follows the author without brackets (e.g., Smith, J. 2022).
+Italics: The title of the book, the name of the journal, or the title of the website must be in italics.
+Consistency: Punctuation and spacing must be consistent throughout the entire list.
+Format: Family name, INITIAL(S). Year. Title. Edition. Place: Publisher.')
+ doc_g.add_paragraph('Examples:
+Below are clear examples of how three common source types are presented using the Leeds Harvard style. This referencing system prioritises author–date citation, consistency, and sufficient information to enable the reader to retrieve the source. Each example shows (a) how to format the full reference and (b) how the matching in-text citation appears within academic work.
+Book example
+Full reference
+Smith, J. (2022) Understanding professional practice. 2nd edn. London: Routledge.
+In-text citation
+Professional practice requires reflection and ongoing learning (Smith, 2022).
+Journal article example
+Full reference
+Brown, L. and Green, T. (2023) ‘Developing reflective capacity in vocational education’, Journal of Education and Work, 36(4), pp. 415–431. https://doi.org/10.1080/13639080.2023.1234567
+In-text citation
+Reflective capacity is argued to be central to effective professional development (Brown and Green, 2023).
+Website example
+Full reference
+Scottish Social Services Council (2024) Codes of practice for social service workers and employers. Available at: https://www.sssc.uk.com/codes-of-practice (Accessed: 13 January 2026).
+In-text citation
+The most recent codes emphasise accountability and high-quality care (Scottish Social Services Council, 2024).
+Reference list 
+Brown, L. and Green, T. (2023) ‘Developing reflective capacity in vocational education’, Journal of Education and Work, 36(4), pp. 415–431. https://doi.org/10.1080/13639080.2023.1234567
+Scottish Social Services Council (2024) Codes of practice for social service workers and employers. Available at: https://www.sssc.uk.com/codes-of-practice (Accessed: 13 January 2026).
+Smith, J. (2022) Understanding professional practice. 2nd edn. London: Routledge.')
+
     
     buf_g = BytesIO(); doc_g.save(buf_g)
     st.download_button("🖨️ Download Full Printable Guide (.docx)", buf_g.getvalue(), "Leeds_Harvard_Full_Guide.docx")
